@@ -56,21 +56,21 @@ const Notification = () => {
   return (
     <div className="p-6">
       {/* Header Section */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="text-2xl font-bold text-[#1E3A8A]  flex items-center">
+      <div className="lg:flex justify-between items-center mb-4">
+        <div className="text-2xl font-bold text-[#1E3A8A]  lg:flex items-center">
           <IoMdNotificationsOutline />
-          <h2 className="mx-2">Notifications</h2>
+          <h2 className="lg:mx-2 mt-4 lg:mt-0">Notifications</h2>
         </div>
-        <div className="flex gap-4">
+        <div className="lg:flex gap-4">
           <button
             onClick={markAllAsRead}
-            className="text-sm text-green-500 hover:text-green-700"
+            className="text-sm text-green-500 hover:text-green-700 mt-4 lg:mt-0"
           >
             Mark All as Read
           </button>
           <button
             onClick={clearAllNotifications}
-            className="text-sm text-red-500 hover:text-red-700"
+            className="text-sm text-red-500 hover:text-red-700 block mt-4 lg:mt-0"
           >
             Clear All Notifications
           </button>

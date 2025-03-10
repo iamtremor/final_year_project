@@ -13,7 +13,7 @@ const Navbar = ({ role, userName, appId }) => {
 
   return (
     <nav className="lg:ml-[15.7rem] ml-[80px] bg-[white] text-white shadow-md z-50">
-      <div className="md:flex justify-between items-center px-6 py-4">
+      <div className="md:flex justify-between items-center px-6 py-6 lg:py-[17px]">
         {/* User Info */}
         <p className="lg:text-md text-sm text-black font-textFont2">
           {userName} (<span className="font-medium font-textFont2">{role}</span>

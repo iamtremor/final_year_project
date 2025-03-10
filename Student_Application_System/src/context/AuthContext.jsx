@@ -40,34 +40,32 @@ export const AuthProvider = ({ children }) => {
   // Login function for any role
   const login = async (credentials, role) => {
     const response = await axios.post(`http://localhost:5000/api/auth/${role}/login`, credentials);
-  
-    const userWithToken = { ...response.data.user, token: response.data.token };
     
-    // Store token and user in localStorage
-    localStorage.setItem("token", response.data.token);
-    localStorage.setItem("user", JSON.stringify(userWithToken));
-  
+    // Store token and user data
+    localStorage.setItem('token', response.data.token);
+    localStorage.setItem('user', JSON.stringify(response.data.user));
+    
     // Set axios default header
-    axios.defaults.headers.common["Authorization"] = `Bearer ${response.data.token}`;
-  
-    setUser(userWithToken);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+    
+    setUser(response.data.user);
     return response.data;
   };
   
+  // Register function for any role
   const register = async (userData, role) => {
     const response = await axios.post(`http://localhost:5000/api/auth/${role}/register`, userData);
-  
-    const userWithToken = { ...response.data.user, token: response.data.token };
-  
-    localStorage.setItem("token", response.data.token);
-    localStorage.setItem("user", JSON.stringify(userWithToken));
-  
-    axios.defaults.headers.common["Authorization"] = `Bearer ${response.data.token}`;
-  
-    setUser(userWithToken);
+    
+    // Store token and user data
+    localStorage.setItem('token', response.data.token);
+    localStorage.setItem('user', JSON.stringify(response.data.user));
+    
+    // Set axios default header
+    axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+    
+    setUser(response.data.user);
     return response.data;
   };
-  
   
   // Logout function
   const logout = () => {

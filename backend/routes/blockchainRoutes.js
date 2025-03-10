@@ -1,13 +1,13 @@
-// backend/routes/blockchainRoutes.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const path = require('path'); // Add this for file path operations
 const blockchainService = require('../services/blockchainService');
 const auth = require('../middleware/auth');
-const { checkRole } = require('../middleware/roles');
-const Document = require('../models/Document'); // Ensure this path is correct
+const { checkRole, checkRoles } = require('../middleware/roles');
+const Document = require('../models/Document'); // Ensure this import is present
 
-// Set up multer for file upload
+// Storage setup for multer
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
@@ -359,13 +359,18 @@ router.get(
       const { applicationId } = req.params;
       
       // Check if this is the current user or an admin/staff
-      if (req.user.role !== 'admin' && req.user.role !== 'staff' && req.user.applicationId !== applicationId) {
+      const isAuthorized = 
+        req.user.role === 'admin' || 
+        req.user.role === 'staff' || 
+        req.user.applicationId === applicationId;
+      
+      if (!isAuthorized) {
         return res.status(403).json({ message: 'Unauthorized to access these documents' });
       }
       
       console.log(`Fetching blockchain documents for student: ${applicationId}`);
       
-      // Get all document types from your database for this student
+      // Fetch all document types from your database
       const documentTypes = await Document.find({ 
         owner: req.user._id 
       }).distinct('documentType');
@@ -377,8 +382,8 @@ router.get(
         try {
           const blockchainDoc = await blockchainService.getDocumentStatus(applicationId, docType);
           
-          if (blockchainDoc && blockchainDoc.exists) {
-            // Find the matching document in your database to get additional info
+          if (blockchainDoc.exists) {
+            // Find the matching document in your database
             const dbDoc = await Document.findOne({ 
               owner: req.user._id,
               documentType: docType
@@ -398,7 +403,6 @@ router.get(
           }
         } catch (error) {
           console.error(`Error fetching blockchain status for document type ${docType}:`, error);
-          // Continue with next document type
         }
       }
       
@@ -412,7 +416,6 @@ router.get(
     }
   }
 );
-
 /**
  * Get document file for verification
  */

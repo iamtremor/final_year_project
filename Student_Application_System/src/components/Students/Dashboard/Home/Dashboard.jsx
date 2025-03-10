@@ -16,6 +16,8 @@ const Dashboard = () => {
     pending: 0,
     onBlockchain: 0
   });
+  const [documents, setDocuments] = useState([]);
+  const [blockchainDocuments, setBlockchainDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isWithinDeadline, setIsWithinDeadline] = useState(true);
 
@@ -26,15 +28,17 @@ const Dashboard = () => {
         
         // Get all documents for the student
         const response = await axios.get('/api/documents/student');
+        const docs = response.data;
+        setDocuments(docs);
         
         // Calculate stats
-        const docs = response.data;
         const approved = docs.filter(doc => doc.status === 'approved').length;
         const pending = docs.filter(doc => doc.status === 'pending').length;
         
         // Get blockchain verified documents
         const blockchainResponse = await axios.get(`/api/blockchain/student-documents/${user.applicationId}`);
         const blockchainDocs = blockchainResponse.data.documents || [];
+        setBlockchainDocuments(blockchainDocs);
         
         setDocumentStats({
           total: docs.length,
@@ -207,6 +211,11 @@ const Dashboard = () => {
             </div>
             <p className="text-sm text-gray-600">
               Your documents are securely hashed and stored on the blockchain, providing tamper-proof verification.
+              {documentStats.onBlockchain > 0 && (
+                <span className="block mt-1 text-green-600">
+                  {documentStats.onBlockchain} of your {documentStats.total} documents are blockchain verified.
+                </span>
+              )}
             </p>
           </div>
           <div className="bg-gray-50 p-3 rounded border">
@@ -227,7 +236,13 @@ const Dashboard = () => {
         <h2 className="text-lg font-medium text-[#1E3A8A]">My Documents</h2>
         <IoIosArrowForward className="ml-1 text-black" />
       </Link>
-      <Documents />
+      
+      {/* Pass blockchain docs to Documents component */}
+      <Documents 
+        documentsData={documents} 
+        blockchainDocuments={blockchainDocuments}
+        isLoading={isLoading}
+      />
     </div>
   );
 };

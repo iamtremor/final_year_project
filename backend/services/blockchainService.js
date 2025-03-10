@@ -89,39 +89,92 @@ class BlockchainService {
    * @param {string} documentType - Type of document
    * @param {Buffer|string} fileContent - Document content
    */
-  async addDocument(applicationId, documentType, fileContent) {
-    try {
-      console.log("blockchainService.addDocument called");
-      console.log("- Creating hash for document...");
-      
-      // Create hash of document content
-      const documentHash = this.createHash(fileContent);
-      console.log("- Document hash created:", documentHash);
-      
-      console.log("- Preparing transaction to blockchain...");
-      console.log("  Contract address:", this.contract.address);
-      
-      // Send transaction to blockchain
-      console.log("- Sending transaction to blockchain...");
-      const tx = await this.contract.addDocument(applicationId, documentType, documentHash);
-      console.log("- Transaction sent, hash:", tx.hash);
-      
-      console.log("- Waiting for transaction to be mined...");
-      const receipt = await tx.wait();
-      console.log("- Transaction mined in block:", receipt.blockNumber);
-      
-      return {
-        transactionHash: receipt.transactionHash,
-        blockNumber: receipt.blockNumber,
-        documentHash,
-        gasUsed: receipt.gasUsed.toString()
-      };
-    } catch (error) {
-      console.error('Error in blockchainService.addDocument:', error);
-      throw error;
-    }
+  // In blockchainService.js, add this logging
+async addDocument(applicationId, documentType, fileContent) {
+  try {
+    console.log("Adding document with params:", {
+      applicationId: applicationId,
+      documentType: documentType,
+      fileContentType: typeof fileContent,
+      fileContentSize: fileContent instanceof Buffer ? fileContent.length : 'Not a buffer'
+    });
+    
+    // Create hash of document content
+    const documentHash = this.createHash(fileContent);
+    
+    // Add explicit gas limit
+    const tx = await this.contract.addDocument(
+      applicationId, 
+      documentType, 
+      documentHash,
+      { 
+        gasLimit: 500000 // Add explicit gas limit
+      }
+    );
+    
+    // Rest of your code...
+  } catch (error) {
+    // Better error logging
+    console.error("Blockchain add document error details:", {
+      message: error.message,
+      code: error.code,
+      reason: error.reason,
+      method: error.method,
+      stack: error.stack ? error.stack.split('\n')[0] : 'No stack'
+    });
+    throw error;
   }
-
+}
+/**
+ * Get document status from the blockchain
+ * @param {string} applicationId - Student's application ID
+ * @param {string} documentType - Type of document
+ * @returns {Object} Document status and details
+ */
+async getDocumentStatus(applicationId, documentType) {
+  try {
+    // Log the request for debugging
+    console.log(`Getting document status from blockchain:`, {
+      applicationId,
+      documentType
+    });
+    
+    // Get document from blockchain
+    const document = await this.contract.documents(applicationId, documentType);
+    
+    // Check if document exists
+    if (!document.exists) {
+      return {
+        exists: false,
+        documentHash: null,
+        status: null,
+        uploadTime: null,
+        reviewTime: null
+      };
+    }
+    
+    // Return document status
+    return {
+      exists: true,
+      documentHash: document.documentHash,
+      documentType: document.documentType,
+      status: document.status,
+      reviewedBy: document.reviewedBy,
+      uploadTime: document.uploadTime,
+      reviewTime: document.reviewTime,
+      rejectionReason: document.rejectionReason
+    };
+  } catch (error) {
+    console.error(`Error getting document status from blockchain:`, error);
+    // Return a default object with exists=false
+    return {
+      exists: false,
+      documentHash: null,
+      status: null,
+      error: error.message
+    };
+  }
+}
   /**
    * Review a document on the blockchain
    * @param {string} applicationId - Student's application ID

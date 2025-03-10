@@ -1,35 +1,37 @@
 // backend/routes/documentRoutes.js
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const { 
   uploadDocument, 
   getStudentDocuments, 
   getDocumentById,
-  updateDocumentStatus 
+  downloadDocument,
+  updateDocumentStatus,
+  getPendingDocuments,
+  getAllDocuments
 } = require('../controllers/documentController');
 const auth = require('../middleware/auth');
-const { checkRole } = require('../middleware/roles');
+const { checkRole, checkRoles } = require('../middleware/roles');
+
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 // Student routes
-router.post('/upload', auth, checkRole('student'), uploadDocument);
+router.post('/upload', auth, checkRole('student'), upload.single('file'), uploadDocument);
 router.get('/student', auth, checkRole('student'), getStudentDocuments);
 router.get('/:id', auth, getDocumentById);
-// In your backend routes/documentRoutes.js
-router.get('/student', auth, async (req, res) => {
-  try {
-    // Get all documents for the authenticated student
-    const documents = await Document.find({ owner: req.user._id });
-    res.json(documents);
-  } catch (error) {
-    console.error('Error fetching student documents:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-// Staff routes
-// router.get('/pending', auth, checkRole('staff'), getPendingDocuments);
-// router.put('/:id/status', auth, checkRole('staff'), updateDocumentStatus);
+router.get('/download/:id', auth, downloadDocument);
 
-// // Admin routes
-// router.get('/all', auth, checkRole('admin'), getAllDocuments);
+// Staff routes
+router.get('/pending', auth, checkRole('staff'), getPendingDocuments);
+router.put('/:id/status', auth, checkRoles(['staff', 'admin']), updateDocumentStatus);
+
+// Admin routes
+router.get('/all', auth, checkRole('admin'), getAllDocuments);
 
 module.exports = router;

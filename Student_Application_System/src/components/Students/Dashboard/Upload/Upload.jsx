@@ -21,8 +21,14 @@ const UploadForm = () => {
     const checkDeadline = async () => {
       try {
         if (user?.applicationId) {
+          const token = localStorage.getItem('token');
           const response = await axios.get(
-            `/api/blockchain/applications/within-deadline/${user.applicationId}`
+            `/api/blockchain/applications/within-deadline/${user.applicationId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            }
           );
           setIsWithinDeadline(response.data.isWithinDeadline);
           
@@ -76,27 +82,41 @@ const UploadForm = () => {
       // Create form data for API call
       const apiFormData = new FormData();
       apiFormData.append('file', selectedFile);
-      apiFormData.append('applicationId', user.applicationId);
-      apiFormData.append('documentType', formData.documentType);
       apiFormData.append('title', formData.documentName);
       apiFormData.append('description', formData.description || '');
+      apiFormData.append('documentType', formData.documentType);
       
-      console.log("Auth token being sent:", localStorage.getItem('token'));
-    const config = {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'multipart/form-data'
+      // If the endpoint expects applicationId, append it
+      if (user?.applicationId) {
+        apiFormData.append('applicationId', user.applicationId);
       }
-    };
-    console.log("Request config:", config);
-      // Upload file to backend and blockchain
-      const response = await axios.post('/api/blockchain/documents/upload', apiFormData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
       
-      toast.success('Document uploaded successfully and recorded on blockchain!');
+      const token = localStorage.getItem('token');
+      console.log("Auth token:", token ? "Token exists" : "No token found");
+      
+      // First, try uploading to documents endpoint
+      let response;
+      try {
+        response = await axios.post('/api/documents/upload', apiFormData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      } catch (docError) {
+        console.log("Standard upload failed, trying blockchain endpoint...");
+        // If that fails, try the blockchain endpoint
+        response = await axios.post('/api/blockchain/documents/upload', apiFormData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      }
+      
+      console.log("Upload response:", response.data);
+      
+      toast.success('Document uploaded successfully!');
       
       // Reset form
       setFormData({
@@ -106,15 +126,19 @@ const UploadForm = () => {
       });
       setSelectedFile(null);
       
-      // Optional: If your Draganddrop component has a reset method, call it here
-      
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(error.response?.data?.message || 'Failed to upload document. Please try again.');
+      let errorMessage = 'Failed to upload document. Please try again.';
+      
+      if (error.response) {
+        console.log("Error response:", error.response);
+        errorMessage = error.response.data?.message || errorMessage;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
-    
   };
 
   return (
@@ -150,6 +174,7 @@ const UploadForm = () => {
               onChange={handleInputChange}
               placeholder="Enter Document Name"
               className="block w-full px-3 py-2 border border-gray-300 rounded-sm focus:ring-blue-500 focus:border-blue-500"
+              required
             />
           </div>
 
@@ -167,6 +192,7 @@ const UploadForm = () => {
               value={formData.documentType}
               onChange={handleInputChange}
               className="block w-full px-3 py-2 border border-gray-300 rounded-sm focus:ring-blue-500 focus:border-blue-500"
+              required
             >
               <option value="">Select Document Type</option>
               <option value="SSCE">SSCE Result</option>

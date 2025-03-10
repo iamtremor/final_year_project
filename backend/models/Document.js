@@ -8,13 +8,23 @@ const DocumentSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: true
+    required: false, // Change from true to false
+    default: '' // Add a default value
   },
   documentType: {
     type: String,
     required: true
   },
   filePath: {
+    type: String
+  },
+  fileName: {
+    type: String
+  },
+  fileSize: {
+    type: Number
+  },
+  mimeType: {
     type: String
   },
   owner: {

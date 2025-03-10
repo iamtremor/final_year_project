@@ -26,7 +26,7 @@ import Profile from "./components/Students/Dashboard/Profile/Profile";
 import Upload from "./components/Students/Dashboard/Upload/Upload";
 import Track from "./components/Students/Dashboard/Track/Track";
 import BlockchainTest from "./components/testcomponent";
-
+import BlockchainVerified from "./components/Students/Dashboard/Verified/BlockChainVerified";
 // Staff components
 import StaffDashboard from "./components/Staff/Dashboard/Dashboard";
 
@@ -85,6 +85,7 @@ function App() {
               <Route path="track" element={<Track />} />
               <Route path="upload" element={<Upload />} />
               <Route path="test" element={< BlockchainTest/>} />
+              <Route path="blockchain-verified" element={<BlockchainVerified />} />
             </Route>
           </Route>
 
