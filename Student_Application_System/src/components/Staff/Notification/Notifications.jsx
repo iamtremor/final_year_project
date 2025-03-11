@@ -5,36 +5,29 @@ import { AiOutlineCheckCircle, AiOutlineDelete } from "react-icons/ai";
 const initialNotifications = [
   {
     id: 1,
-    message: "New user registered: Adesuwa Angela (Student).",
-    type: "User Management",
-    date: "March 6, 2025",
+    message: "New document pending approval: WAEC Result for Adesuwa Angela.",
+    type: "Pending Approval",
+    date: "March 5, 2025",
     read: false,
   },
   {
     id: 2,
-    message: "Document approved: WAEC Result for John Doe.",
-    type: "Approval",
-    date: "March 5, 2025",
+    message: "Document approved: Birth Certificate for John Doe.",
+    type: "Approved",
+    date: "March 4, 2025",
     read: true,
   },
   {
     id: 3,
     message:
-      "Document rejected: Birth Certificate for Jane Smith. Reason: Incomplete details.",
-    type: "Rejection",
-    date: "March 4, 2025",
-    read: false,
-  },
-  {
-    id: 4,
-    message: "System update scheduled for March 10, 2025.",
-    type: "System Update",
+      "Document rejected: Transcript for Jane Smith. Reason: Low-quality scan.",
+    type: "Rejected",
     date: "March 3, 2025",
     read: false,
   },
 ];
 
-const AdminNotifications = () => {
+const StaffNotifications = () => {
   const [notifications, setNotifications] = useState(initialNotifications);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false); // Toggle Read/Unread
 
@@ -62,7 +55,7 @@ const AdminNotifications = () => {
         <IoMdNotificationsOutline size={30} className="text-[#0D0637] mr-2" />
 
         <h2 className="text-2xl font-bold text-[#0D0637]">
-          Admin Notifications
+          Staff Notifications
         </h2>
       </div>
       {/* Actions */}
@@ -99,13 +92,11 @@ const AdminNotifications = () => {
 
                 <span
                   className={`text-xs font-semibold ${
-                    notif.type === "User Management"
-                      ? "text-blue-600"
-                      : notif.type === "Approval"
+                    notif.type === "Pending Approval"
+                      ? "text-yellow-600"
+                      : notif.type === "Approved"
                       ? "text-green-600"
-                      : notif.type === "Rejection"
-                      ? "text-red-600"
-                      : "text-yellow-600"
+                      : "text-red-600"
                   }`}
                 >
                   {notif.type}
@@ -134,4 +125,4 @@ const AdminNotifications = () => {
   );
 };
 
-export default AdminNotifications;
+export default StaffNotifications;

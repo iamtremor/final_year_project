@@ -77,7 +77,7 @@ const Signup = () => {
               <input
                 className="border-[0.23px] md:border-[1px] w-full h-[50px] rounded-md text-sm border-black  pl-[2.5rem] placeholder-black"
                 type="number"
-                placeholder="Application ID"
+                placeholder="Admin ID"
               />
               <span className=" absolute left-[1rem] top-[1.5rem] transform -translate-y-1/2 cursor-pointer text-gray-500">
                 <HiOutlineIdentification className="w-[1rem]" />

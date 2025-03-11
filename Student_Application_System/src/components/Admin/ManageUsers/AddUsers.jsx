@@ -29,7 +29,7 @@ const AddUsers = ({ modalIsOpen, setModalIsOpen, users, setUsers }) => {
       isOpen={modalIsOpen}
       onRequestClose={() => setModalIsOpen(false)}
       contentLabel="Add User"
-      className="bg-white p-6 rounded-lg shadow-lg max-w-md mx-auto"
+      className="bg-white p-6 rounded-lg shadow-lg w-[20rem] md:w-[30rem] mx-auto"
       overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
     >
       <h2 className="text-lg font-medium mb-4 font-textFont2">Add New User</h2>
@@ -92,13 +92,13 @@ const AddUsers = ({ modalIsOpen, setModalIsOpen, users, setUsers }) => {
         <div className="flex justify-end mt-4">
           <button
             onClick={() => setModalIsOpen(false)}
-            className="px-7 py-1 text-[13px] bg-red-600 rounded-md  mr-auto"
+            className="px-7 py-1 text-[13px] text-white bg-red-600 rounded-md  mr-auto"
           >
             Cancel
           </button>
           <button
             onClick={handleAddUser}
-            className="px-5 text-[13px] py-2 bg-blue-600 text-white rounded-md"
+            className="px-5 text-[13px] py-2 bg-[#C3A135] text-white rounded-md"
           >
             Add User
           </button>

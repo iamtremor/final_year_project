@@ -1,59 +1,29 @@
-import React from "react";
+import React, { useState } from "react";
+import Logo from "../../assets/logo.png";
 import { Link, useLocation } from "react-router-dom";
 import { AiOutlineCloudUpload } from "react-icons/ai";
-import { IoMdNotificationsOutline } from "react-icons/io";
-import { HiOutlineDocumentSearch } from "react-icons/hi";
-import { HiOutlineClock } from "react-icons/hi2";
-
-import {
-  FaUsers,
-  FaTasks,
-  FaUserShield,
-  FaRegTimesCircle,
-  FaFileAlt,
-} from "react-icons/fa";
+import { IoMdNotificationsOutline, IoIosArrowForward } from "react-icons/io";
+import { HiOutlineDocumentSearch, HiOutlineClock } from "react-icons/hi";
+import { FaUsers, FaTasks, FaRegTimesCircle, FaFileAlt } from "react-icons/fa";
 import { FiFileText, FiCheckCircle, FiClock } from "react-icons/fi";
 import { MdOutlineSpaceDashboard, MdOutlineCampaign } from "react-icons/md";
 import { CiSettings } from "react-icons/ci";
 import { IoBarChart } from "react-icons/io5";
+import { MdArrowDropDown, MdMenu, MdClose } from "react-icons/md";
+import { FaSortUp } from "react-icons/fa";
+
+import { FiChevronDown } from "react-icons/fi";
 
 const Sidebar = ({ role }) => {
   const location = useLocation();
   const activeLink = location.pathname;
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openSubMenu, setOpenSubMenu] = useState(null);
 
-  // Function to check active link
-  const isActive = (link) => activeLink.startsWith(link);
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  const toggleSubMenu = (index) =>
+    setOpenSubMenu(openSubMenu === index ? null : index);
 
-  // Function to render full sidebar links
-  const renderLink = (link, text, Icon) => (
-    <Link
-      to={link}
-      className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium ${
-        isActive(link)
-          ? "bg-[#112969] text-white"
-          : "text-gray-300 hover:bg-[#1c316c] hover:text-white"
-      }`}
-    >
-      <Icon size={20} />
-      <span>{text}</span>
-    </Link>
-  );
-
-  // Function to render compact sidebar links for small screens
-  const renderLinkSmall = (link, Icon) => (
-    <Link
-      to={link}
-      className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium ${
-        isActive(link)
-          ? "bg-[#112969] text-white"
-          : "text-gray-300 hover:bg-[#1c316c] hover:text-white"
-      }`}
-    >
-      <Icon size={20} />
-    </Link>
-  );
-
-  // Sidebar links configuration
   const sidebarLinks = {
     Student: [
       {
@@ -97,14 +67,14 @@ const Sidebar = ({ role }) => {
         icon: FiCheckCircle,
       },
       {
+        path: "/staff/rejected",
+        name: "Rejected Documents",
+        icon: FiCheckCircle,
+      },
+      {
         path: "/staff/pending-approvals",
         name: "Pending Approvals",
         icon: FaTasks,
-      },
-      {
-        path: "/staff/documents",
-        name: "All Documents",
-        icon: FiFileText,
       },
 
       {
@@ -112,7 +82,7 @@ const Sidebar = ({ role }) => {
         name: "Notifications",
         icon: IoMdNotificationsOutline,
       },
-      { path: "/student/profile", name: "Profile", icon: FaUsers },
+      { path: "/staff/profile", name: "Profile", icon: FaUsers },
     ],
     Admin: [
       {
@@ -120,28 +90,41 @@ const Sidebar = ({ role }) => {
         name: "Dashboard",
         icon: MdOutlineSpaceDashboard,
       },
-      { path: "/admin/manage-users", name: "Manage Users", icon: FaUsers },
       {
-        path: "/admin/roles-permission",
-        name: "Roles and Permissions",
-        icon: FaUserShield,
+        path: "/admin/my-documents",
+        name: "All Documents",
+        icon: FiFileText,
+        subLinks: [
+          {
+            path: "/admin/my-documents/approved",
+            name: "Approved Documents",
+            icon: FiCheckCircle,
+          },
+          {
+            path: "/admin/my-documents/rejected",
+            name: "Rejected Documents",
+            icon: FaRegTimesCircle,
+          },
+        ],
       },
-      { path: "/admin/my-documents", name: "All Documents", icon: FiFileText },
+      {
+        name: "Manage Users",
+        icon: FaUsers,
+        subLinks: [
+          { name: "User List", path: "/admin/manage-user-user-list" },
 
-      {
-        path: "/admin/approved",
-        name: "Approved Documents",
-        icon: FiCheckCircle,
+          {
+            path: "/admin/manage-user-roles-permission",
+            name: "Roles and Permissions",
+          },
+        ],
       },
-      {
-        path: "/admin/rejected",
-        name: "Rejected Documents",
-        icon: FaRegTimesCircle,
-      },
+
       {
         path: "/admin/announcement",
         name: "Announcement",
         icon: MdOutlineCampaign,
+        subLinks: [{ path: "/admin/announcement", name: "New Announcement" }],
       },
       {
         path: "/admin/notifications",
@@ -152,6 +135,12 @@ const Sidebar = ({ role }) => {
         path: "/admin/deadlines",
         name: "Set Deadlines",
         icon: HiOutlineClock,
+        subLinks: [
+          {
+            name: "Submission Deadlines",
+            path: "/admin/deadlines",
+          },
+        ],
       },
       {
         path: "/admin/track-application",
@@ -163,35 +152,109 @@ const Sidebar = ({ role }) => {
         name: "Reports and Analytics",
         icon: IoBarChart,
       },
-      {
-        path: "/admin/settings",
-        name: "Settings",
-        icon: CiSettings,
-      },
+      { path: "/admin/settings", name: "Settings", icon: CiSettings },
     ],
   };
 
   return (
-    <div className="fixed top-0 left-0 h-full w-[90px] lg:w-[250px] bg-[#1E3A8A] text-gray-300">
-      <h1 className="font-semibold lg:text-[26px] text-[#C3A135] mt-4 border-b-[0.2px] border-gray-400 text-center lg:text-left lg:px-[30px] py-[15px]">
-        SEMS
-      </h1>
-      <div className="mt-6 px-4">
-        {/* Large Screen Navigation */}
-        <ul className="space-y-3 hidden lg:block">
-          {role &&
-            sidebarLinks[role]?.map(({ path, name, icon }) =>
-              renderLink(path, name, icon)
-            )}
-        </ul>
+    <div className="flex">
+      {/* Sidebar (Fully Hides When Closed) */}
+      <div
+        className={`fixed top-0 left-0 h-full w-[250px] bg-[#1E3A8A] text-gray-300 transition-transform duration-300 z-50
+        ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:translate-x-0`}
+      >
+        {/* Sidebar Header */}
+        <div className="flex items-center justify-between px-4 py-4 border-b border-gray-400">
+          <div className="flex items-center gap-3">
+            <img src={Logo} alt="logo" className="w-12 h-12" />
+            <h1 className="text-lg font-semibold">SAS</h1>
+          </div>
+          {/* Close button (only on small screens) */}
+          <button className="text-white lg:hidden" onClick={toggleSidebar}>
+            <MdClose size={24} />
+          </button>
+        </div>
 
-        {/* Small Screen Navigation */}
-        <ul className="space-y-3 lg:hidden block">
+        {/* Sidebar Links */}
+        <ul className="mt-6 px-4 space-y-3">
           {role &&
-            sidebarLinks[role]?.map(({ path, icon }) =>
-              renderLinkSmall(path, icon)
-            )}
+            sidebarLinks[role]?.map((item, index) => (
+              <li key={item.path || index}>
+                {item.subLinks ? (
+                  <>
+                    {/* Parent Link */}
+                    <button
+                      className={`flex items-center justify-between w-full px-4 py-3 rounded-md text-[13px] font-normal
+                      ${
+                        openSubMenu === index
+                          ? "bg-[#112969] text-white"
+                          : "hover:bg-[#1c316c] hover:text-white"
+                      }`}
+                      onClick={() => toggleSubMenu(index)}
+                    >
+                      <div className="flex items-center gap-3">
+                        {React.createElement(item.icon, { size: 20 })}
+                        <span>{item.name}</span>
+                      </div>
+                      <FiChevronDown size={16} />
+                    </button>
+
+                    {/* Submenu Links */}
+                    {openSubMenu === index && (
+                      <ul className="ml-6 mt-2 space-y-2">
+                        {item.subLinks.map((sub) => (
+                          <li key={sub.path}>
+                            <Link
+                              to={sub.path}
+                              className={`block px-4 py-2 text-[12px] rounded-md ${
+                                activeLink === sub.path
+                                  ? "bg-[#112969] text-white"
+                                  : "hover:bg-[#1c316c] hover:text-white"
+                              }`}
+                            >
+                              {sub.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                ) : (
+                  <Link
+                    to={item.path}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-md text-[13px] font-normal
+                    ${
+                      activeLink.startsWith(item.path)
+                        ? "bg-[#112969] text-white"
+                        : "hover:bg-[#1c316c] hover:text-white"
+                    }`}
+                  >
+                    {React.createElement(item.icon, { size: 20 })}
+                    <span>{item.name}</span>
+                  </Link>
+                )}
+              </li>
+            ))}
         </ul>
+      </div>
+
+      {/* Main Content (Expands When Sidebar Is Closed) */}
+      <div
+        className={`flex-1 transition-all duration-300 ${
+          sidebarOpen ? "ml-[250px]" : "ml-0"
+        } lg:ml-[250px]`}
+      >
+        {/* Sidebar Toggle Button (only on small screens) */}
+        {!sidebarOpen && (
+          <button
+            className="lg:hidden fixed top-12 left-[1.5rem] bg-blue-900 text-white p-2 rounded-md 0"
+            onClick={toggleSidebar}
+          >
+            <MdMenu size={24} />
+          </button>
+        )}
       </div>
     </div>
   );

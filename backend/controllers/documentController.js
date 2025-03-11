@@ -1,6 +1,7 @@
 // backend/controllers/documentController.js
 
 const Document = require('../models/Document');
+const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
 const config = require('../config');
@@ -21,6 +22,7 @@ try {
 } catch (err) {
   console.error("Upload directory permission issue:", err);
 }
+
 // Upload document
 const uploadDocument = async (req, res) => {
   try {
@@ -50,27 +52,11 @@ const uploadDocument = async (req, res) => {
       filePath: path.join(config.storage.documentsPath, fileName),
       fileName: file.originalname,
       fileSize: file.size,
-      mimeType: file.mimetype
+      mimeType: file.mimetype,
+      documentHash: blockchainService.createHash(file.buffer) // Store hash for future verification but don't add to blockchain yet
     });
     
     await document.save();
-    
-    // Register document on blockchain
-    try {
-      const applicationId = req.user.applicationId;
-      if (applicationId) {
-        const blockchainResult = await blockchainService.addDocument(
-          applicationId,
-          documentType,
-          file.buffer
-        );
-        
-        console.log('Document registered on blockchain:', blockchainResult);
-      }
-    } catch (blockchainError) {
-      console.error('Blockchain document registration error:', blockchainError);
-      // Continue with response, not failing if blockchain has issues
-    }
     
     res.status(201).json({ document });
   } catch (error) {
@@ -157,36 +143,88 @@ const updateDocumentStatus = async (req, res) => {
   try {
     const { status, feedback } = req.body;
     
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
+    }
+    
+    if (status !== 'approved' && status !== 'rejected') {
+      return res.status(400).json({ message: 'Status must be either "approved" or "rejected"' });
+    }
+    
     const document = await Document.findById(req.params.id);
     
     if (!document) {
       return res.status(404).json({ message: 'Document not found' });
     }
     
+    // Update document status
     document.status = status;
-    document.feedback = feedback;
+    document.feedback = feedback || '';
     document.reviewedBy = req.user._id;
     document.reviewDate = Date.now();
     
-    await document.save();
-    
-    // Update document status on blockchain
-    try {
-      const student = await User.findById(document.owner);
-      if (student && student.applicationId) {
-        await blockchainService.reviewDocument(
+    // If document is approved, register it on the blockchain
+    if (status === 'approved') {
+      try {
+        // Get the student owner of the document
+        const student = await User.findById(document.owner);
+        
+        if (!student || !student.applicationId) {
+          return res.status(400).json({ message: 'Student information not found or incomplete' });
+        }
+        
+        // Get file content for hash verification
+        const filePath = path.join(__dirname, '..', document.filePath);
+        if (!fs.existsSync(filePath)) {
+          return res.status(404).json({ message: 'Document file not found on server' });
+        }
+        
+        const fileContent = fs.readFileSync(filePath);
+        
+        // Check if student exists on blockchain, if not register them
+        const studentStatus = await blockchainService.getStudentStatus(student.applicationId);
+        
+        if (!studentStatus.exists) {
+          console.log(`Student ${student.applicationId} not found on blockchain, registering...`);
+          await blockchainService.registerStudent(
+            student.applicationId,
+            {
+              fullName: student.fullName,
+              email: student.email,
+              applicationId: student.applicationId
+            }
+          );
+        }
+        
+        // Add document to blockchain
+        console.log(`Adding approved document to blockchain for student ${student.applicationId}`);
+        const blockchainResult = await blockchainService.addDocument(
           student.applicationId,
           document.documentType,
-          status,
-          feedback || ''
+          fileContent
         );
+        
+        // Update document with blockchain information
+        document.blockchainTxHash = blockchainResult.transactionHash;
+        document.blockchainBlockNumber = blockchainResult.blockNumber;
+        document.blockchainTimestamp = Date.now();
+        
+        console.log(`Document added to blockchain: ${blockchainResult.transactionHash}`);
+      } catch (blockchainError) {
+        console.error('Blockchain document registration error:', blockchainError);
+        return res.status(500).json({ 
+          message: 'Error registering document on blockchain',
+          error: blockchainError.message
+        });
       }
-    } catch (blockchainError) {
-      console.error('Blockchain document status update error:', blockchainError);
-      // Continue with response, not failing if blockchain has issues
     }
     
-    res.json(document);
+    await document.save();
+    
+    res.json({
+      message: `Document ${status} successfully`,
+      document
+    });
   } catch (error) {
     console.error('Update document error:', error.message);
     res.status(500).json({ message: 'Server error' });

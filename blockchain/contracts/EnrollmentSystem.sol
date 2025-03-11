@@ -219,7 +219,11 @@ contract EnrollmentSystem {
         
         emit LogRecorded(applicationId, actor, action, block.timestamp);
     }
-    
+    // Function to record external audit log
+// Function to record external audit log
+function recordAuditLog(string memory applicationId, string memory action, string memory details) public {
+    recordLog(applicationId, msg.sender, action, details);
+}
     // Helper function to convert uint to string
     function uint2str(uint256 _i) internal pure returns (string memory) {
         if (_i == 0) {

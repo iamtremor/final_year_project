@@ -1,19 +1,16 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  // Get the contract factory
+  const [deployer] = await ethers.getSigners();
+  console.log("Deploying contracts with the account:", deployer.address);
+
   const EnrollmentSystem = await ethers.getContractFactory("EnrollmentSystem");
-  
-  console.log("Deploying EnrollmentSystem contract...");
-  
-  // Deploy the contract
-  const enrollmentSystem = await EnrollmentSystem.deploy();
-  await enrollmentSystem.deployed();
-  
-  console.log("EnrollmentSystem deployed to:", enrollmentSystem.address);
+  const contract = await EnrollmentSystem.deploy();
+
+  await contract.deployed();
+  console.log("EnrollmentSystem deployed to:", contract.address);
 }
 
-// Run the deployment
 main()
   .then(() => process.exit(0))
   .catch((error) => {

@@ -1,5 +1,6 @@
- const User = require('../models/User');
+const User = require('../models/User');
 const { generateToken } = require('../utils/tokenUtils');
+const blockchainService = require('../services/blockchainService'); // Add this import
 
 // @desc    Register student
 // @route   POST /api/auth/student/register
@@ -36,6 +37,37 @@ const registerStudent = async (req, res) => {
     
     await user.save();
     
+    // Register student on blockchain - only creating a record, not documents
+    try {
+      // Create a hash of student data for blockchain storage
+      const studentData = {
+        fullName,
+        email,
+        applicationId,
+        registrationTimestamp: new Date().toISOString()
+      };
+      
+      console.log(`Registering student ${applicationId} on blockchain...`);
+      // Call blockchain service to register the student
+      const blockchainResult = await blockchainService.registerStudent(applicationId, studentData);
+      console.log(`Student ${applicationId} registered on blockchain successfully`, blockchainResult);
+      
+      // Also log this account creation event on the blockchain
+      await blockchainService.logAction(
+        applicationId,
+        "ACCOUNT_CREATED",
+        `Student account created: ${fullName} (${email})`
+      );
+      
+      // Store blockchain transaction details with user
+      user.blockchainTxHash = blockchainResult.transactionHash;
+      user.blockchainBlockNumber = blockchainResult.blockNumber;
+      await user.save();
+    } catch (blockchainError) {
+      console.error('Blockchain registration error:', blockchainError);
+      // We continue with the response, not failing if blockchain has issues
+    }
+    
     // Generate JWT token
     const token = generateToken(user._id, user.role);
     
@@ -47,7 +79,8 @@ const registerStudent = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         applicationId: user.applicationId,
-        role: user.role
+        role: user.role,
+        blockchainRegistered: !!user.blockchainTxHash
       }
     });
   } catch (error) {
@@ -90,6 +123,28 @@ const registerStaff = async (req, res) => {
     });
     
     await user.save();
+    
+    // Log staff account creation on blockchain
+    try {
+      const staffData = {
+        fullName,
+        email,
+        staffId,
+        role: 'staff',
+        registrationTimestamp: new Date().toISOString()
+      };
+      
+      // Log this account creation event on the blockchain
+      // Using staffId as the key (like applicationId for students)
+      await blockchainService.logAction(
+        staffId,
+        "STAFF_ACCOUNT_CREATED",
+        `Staff account created: ${fullName} (${email})`
+      );
+    } catch (blockchainError) {
+      console.error('Blockchain staff registration error:', blockchainError);
+      // Continue with the response, not failing if blockchain has issues
+    }
     
     // Generate JWT token
     const token = generateToken(user._id, user.role);
@@ -146,6 +201,20 @@ const registerAdmin = async (req, res) => {
     
     await user.save();
     
+    // Log admin account creation on blockchain
+    try {
+      // Log this account creation event on the blockchain
+      // Using adminId as the key
+      await blockchainService.logAction(
+        adminId,
+        "ADMIN_ACCOUNT_CREATED",
+        `Admin account created: ${fullName} (${email})`
+      );
+    } catch (blockchainError) {
+      console.error('Blockchain admin registration error:', blockchainError);
+      // Continue with the response, not failing if blockchain has issues
+    }
+    
     // Generate JWT token
     const token = generateToken(user._id, user.role);
     
@@ -201,7 +270,8 @@ const loginStudent = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         applicationId: user.applicationId,
-        role: user.role
+        role: user.role,
+        blockchainRegistered: !!user.blockchainTxHash
       }
     });
   } catch (error) {

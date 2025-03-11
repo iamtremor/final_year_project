@@ -47,6 +47,14 @@ const UserSchema = new mongoose.Schema({
       return this.role === 'admin';
     }
   },
+  // Blockchain transaction details (for student registrations)
+  blockchainTxHash: {
+    type: String
+  },
+  blockchainBlockNumber: {
+    type: Number
+  },
+  // User creation timestamp
   createdAt: {
     type: Date,
     default: Date.now

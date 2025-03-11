@@ -137,7 +137,7 @@ const UserList = () => {
         {/* Add User Button */}
         <button
           onClick={() => setModalIsOpen(true)}
-          className="bg-blue-600 text-white text-[12px] px-4 py-2 rounded-md flex items-center gap-2"
+          className="bg-[#C3A135] text-white text-[12px] px-4 py-2 rounded-md flex items-center gap-2"
         >
           <FaUserPlus /> Add User
         </button>

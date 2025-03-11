@@ -8,8 +8,8 @@ const DocumentSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: false, // Change from true to false
-    default: '' // Add a default value
+    required: false,
+    default: ''
   },
   documentType: {
     type: String,
@@ -50,6 +50,20 @@ const DocumentSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  // Document hash (stored when uploaded, used for verification before adding to blockchain)
+  documentHash: {
+    type: String
+  },
+  // Blockchain transaction details (added only when approved)
+  blockchainTxHash: {
+    type: String
+  },
+  blockchainBlockNumber: {
+    type: Number
+  },
+  blockchainTimestamp: {
+    type: Date
   }
 });
 

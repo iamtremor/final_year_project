@@ -1,7 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext"; // Import AuthProvider
-import ProtectedRoute from "./components/ProtectedRoute"; // Import ProtectedRoute
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Auth components
 import StudentLogin from "./components/Students/Authentication/Login/Login";
@@ -14,7 +14,7 @@ import AdminSignup from "./components/Admin/Authentication/Signup/Signup";
 // Other components
 import Landingpage from "./components/LandingPage/Landingpage";
 import Notfound from "./components/Notfound";
-import Unauthorized from "./components/Unauthorized"; // Create this component
+import Unauthorized from "./components/Unauthorized";
 
 // Student components
 import StudentDashboard from "./components/Students/Dashboard/Home/Dashboard";
@@ -27,21 +27,31 @@ import Upload from "./components/Students/Dashboard/Upload/Upload";
 import Track from "./components/Students/Dashboard/Track/Track";
 import BlockchainTest from "./components/testcomponent";
 import BlockchainVerified from "./components/Students/Dashboard/Verified/BlockChainVerified";
+
 // Staff components
 import StaffDashboard from "./components/Staff/Dashboard/Dashboard";
+import StaffApproved from "./components/Staff/StaffApproved";
+import StaffRejected from "./components/Staff/StaffRejected";
+import StaffPending from "./components/Staff/StaffPending";
+import StaffNotification from "./components/Staff/Notification/Notifications";
+import StaffProfile from "./components/Staff/StaffProfile";
 
 // Admin components
 import AdminDashboard from "./components/Admin/Dashboard/Dashboard";
 import ManageUsers from "./components/Admin/ManageUsers/ManageUsers";
+import UserList from "./components/Admin/ManageUsers/UserList";
 import RolesandPermission from "./components/Admin/RolesandPermission/RolesandPermission";
 import AllDocuments from "./components/Admin/MyDocuments/MyDocuments";
 import ApprovedDocs from "./components/Admin/Approved/Approved";
 import RejectedDocs from "./components/Admin/Rejected/Rejected";
 import Announcements from "./components/Admin/Announcement/Announcements";
+import AdminNotification from "./components/Admin/Notification/Notifications";
 import SetDeadlines from "./components/Admin/SetDeadlines/Deadlines";
 import TrackApp from "./components/Admin/Track/Track";
 import Reportsa from "./components/Admin/Reports/Reports";
 import Settings from "./components/Admin/Settings/Settings";
+import NewDeadlineForm from "./components/Admin/SetDeadlines/NewDeadlineForm";
+import NewAnnouncementForm from "./components/Admin/Announcement/NewAnnouncement";
 
 // Layout component
 import Layout from "./components/Layout/Layout";
@@ -84,7 +94,7 @@ function App() {
               <Route path="profile" element={<Profile />} />
               <Route path="track" element={<Track />} />
               <Route path="upload" element={<Upload />} />
-              <Route path="test" element={< BlockchainTest/>} />
+              <Route path="test" element={<BlockchainTest />} />
               <Route path="blockchain-verified" element={<BlockchainVerified />} />
             </Route>
           </Route>
@@ -103,6 +113,11 @@ function App() {
               element={<Layout role="Staff" />}
             >
               <Route path="dashboard" element={<StaffDashboard />} />
+              <Route path="approved" element={<StaffApproved />} />
+              <Route path="rejected" element={<StaffRejected />} />
+              <Route path="pending-approvals" element={<StaffPending />} />
+              <Route path="notifications" element={<StaffNotification />} />
+              <Route path="profile" element={<StaffProfile />} />
             </Route>
           </Route>
 
@@ -121,13 +136,19 @@ function App() {
             >
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="manage-users" element={<ManageUsers />} />
+              <Route path="manage-user-user-list" element={<UserList />} />
+              <Route path="manage-user-roles-permission" element={<RolesandPermission />} />
               <Route path="roles-permission" element={<RolesandPermission />} />
               <Route path="my-documents" element={<AllDocuments />} />
+              <Route path="my-documents/approved" element={<ApprovedDocs />} />
               <Route path="approved" element={<ApprovedDocs />} />
               <Route path="rejected" element={<RejectedDocs />} />
+              <Route path="my-documents/rejected" element={<RejectedDocs />} />
               <Route path="announcement" element={<Announcements />} />
-              <Route path="notifications" element={<Notification />} />
+              <Route path="new-announcement" element={<NewAnnouncementForm />} />
+              <Route path="notifications" element={<AdminNotification />} />
               <Route path="deadlines" element={<SetDeadlines />} />
+              <Route path="new-deadlines" element={<NewDeadlineForm />} />
               <Route path="track-application" element={<TrackApp />} />
               <Route path="reports-analytics" element={<Reportsa />} />
               <Route path="settings" element={<Settings />} />

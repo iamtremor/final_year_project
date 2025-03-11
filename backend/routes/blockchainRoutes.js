@@ -1,25 +1,35 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path'); // Add this for file path operations
+const path = require('path');
 const blockchainService = require('../services/blockchainService');
 const auth = require('../middleware/auth');
 const { checkRole, checkRoles } = require('../middleware/roles');
-const Document = require('../models/Document'); // Ensure this import is present
+const Document = require('../models/Document');
+const User = require('../models/User');
 
 // Storage setup for multer
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Add this to your blockchainRoutes.js
-router.get('/test', (req, res) => {
-  res.json({
-    message: 'Blockchain service is loaded',
-    providerConfigured: !!blockchainService.provider,
-    contractConfigured: !!blockchainService.contract,
-    contractAddress: blockchainService.contract ? blockchainService.contract.address : 'Not set'
-  });
+// Blockchain service status check
+router.get('/status', async (req, res) => {
+  try {
+    const isConnected = await blockchainService.isConnected();
+    
+    res.json({
+      connected: isConnected,
+      provider: blockchainService.provider ? blockchainService.provider.connection.url : 'Not configured',
+      contractAddress: blockchainService.contract ? blockchainService.contract.address : 'Not configured'
+    });
+  } catch (error) {
+    res.status(500).json({
+      connected: false,
+      error: error.message
+    });
+  }
 });
+
 // Register student on blockchain
 router.post(
   '/students/register',
@@ -68,55 +78,16 @@ router.post(
   }
 );
 
-// Upload document to blockchain
-// In blockchainRoutes.js
+// This endpoint is no longer used directly - documents are only added when approved by staff
+// Kept for backward compatibility
 router.post(
   '/documents/upload',
   auth,
   upload.single('file'),
   async (req, res) => {
-    try {
-      console.log("Upload request received:", req.body);
-      console.log("File received:", req.file ? req.file.originalname : "No file");
-      
-      const { applicationId, documentType } = req.body;
-      const file = req.file;
-      
-      if (!applicationId || !documentType || !file) {
-        return res.status(400).json({ 
-          message: 'Application ID, document type, and file are required'
-        });
-      }
-      
-      console.log("Preparing to add document to blockchain...");
-      console.log("- Application ID:", applicationId);
-      console.log("- Document Type:", documentType);
-      console.log("- File Size:", file.size, "bytes");
-      
-      // Create explicit buffer from file
-      const fileBuffer = file.buffer;
-      
-      console.log("Calling blockchain service addDocument method...");
-      const result = await blockchainService.addDocument(
-        applicationId,
-        documentType,
-        fileBuffer
-      );
-      
-      console.log("Blockchain transaction result:", result);
-      
-      res.status(201).json({
-        message: 'Document uploaded to blockchain',
-        documentHash: result.documentHash,
-        transaction: result
-      });
-    } catch (error) {
-      console.error('Blockchain document upload error:', error);
-      res.status(500).json({ 
-        message: 'Error uploading document to blockchain',
-        error: error.message
-      });
-    }
+    return res.status(400).json({ 
+      message: 'Documents are now only added to the blockchain after approval by staff'
+    });
   }
 );
 
@@ -180,46 +151,7 @@ router.post(
     }
   }
 );
-// In blockchainRoutes.js
-router.get('/test-transaction', async (req, res) => {
-  try {
-    console.log("Testing blockchain transaction...");
-    
-    // Get network info to check connection
-    const network = await blockchainService.provider.getNetwork();
-    console.log("Connected to network:", network);
-    
-    // Get the contract address
-    const contractAddress = blockchainService.contract.address;
-    console.log("Contract address:", contractAddress);
-    
-    // Try a simple write operation
-    const tx = await blockchainService.contract.registerStudent("TEST124", "0x1234567890");
-    console.log("Transaction hash:", tx.hash);
-    
-    // Wait for the transaction to be mined
-    const receipt = await tx.wait();
-    console.log("Transaction confirmed in block:", receipt.blockNumber);
-    
-    res.status(200).json({
-      success: true,
-      network: {
-        name: network.name,
-        chainId: network.chainId
-      },
-      contractAddress: contractAddress,
-      transactionHash: tx.hash,
-      blockNumber: receipt.blockNumber
-    });
-  } catch (error) {
-    console.error("Blockchain test error:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      stack: error.stack
-    });
-  }
-});
+
 // Set deadline on blockchain
 router.post(
   '/applications/deadline',
@@ -290,7 +222,7 @@ router.get(
   }
 );
 
-// Verify document integrity
+// Verify document integrity against blockchain
 router.post(
   '/documents/verify-integrity',
   auth,
@@ -317,40 +249,8 @@ router.post(
     }
   }
 );
-// Add this to your blockchainRoutes.js
-router.get('/register-test-student', async (req, res) => {
-  try {
-    const applicationId = req.query.id || "140456"; // Use your actual student ID
-    console.log("Registering student:", applicationId);
-    
-    const tx = await blockchainService.registerStudent(
-      applicationId, 
-      // Student data hash - can be anything for testing
-      "0x" + require('crypto').createHash('sha256').update(JSON.stringify({name: "Test Student"})).digest('hex')
-    );
-    
-    console.log("Transaction hash:", tx.transactionHash);
-    
-    res.status(200).json({
-      success: true,
-      message: `Student ${applicationId} registered on blockchain`,
-      transaction: tx
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
 
-
-// Add these endpoints to your blockchainRoutes.js file
-
-/**
- * Get all documents for a student from the blockchain
- */
+// Get blockchain-verified documents for a student
 router.get(
   '/student-documents/:applicationId',
   auth,
@@ -368,88 +268,65 @@ router.get(
         return res.status(403).json({ message: 'Unauthorized to access these documents' });
       }
       
-      console.log(`Fetching blockchain documents for student: ${applicationId}`);
+      // Find the user with this application ID
+      const student = await User.findOne({ applicationId });
       
-      // Fetch all document types from your database
-      const documentTypes = await Document.find({ 
-        owner: req.user._id 
-      }).distinct('documentType');
-      
-      const documents = [];
-      
-      // For each document type, get the blockchain status
-      for (const docType of documentTypes) {
-        try {
-          const blockchainDoc = await blockchainService.getDocumentStatus(applicationId, docType);
-          
-          if (blockchainDoc.exists) {
-            // Find the matching document in your database
-            const dbDoc = await Document.findOne({ 
-              owner: req.user._id,
-              documentType: docType
-            });
-            
-            documents.push({
-              id: dbDoc ? dbDoc._id : undefined,
-              title: dbDoc ? dbDoc.title : docType,
-              documentType: docType,
-              documentHash: blockchainDoc.documentHash,
-              status: blockchainDoc.status,
-              uploadTime: blockchainDoc.uploadTime?.toNumber(),
-              reviewTime: blockchainDoc.reviewTime?.toNumber(),
-              blockNumber: blockchainDoc.blockNumber,
-              transactionHash: blockchainDoc.transactionHash
-            });
-          }
-        } catch (error) {
-          console.error(`Error fetching blockchain status for document type ${docType}:`, error);
-        }
+      if (!student) {
+        return res.status(404).json({ message: 'Student not found' });
       }
+      
+      // Get only the approved documents from the database
+      const approvedDocs = await Document.find({ 
+        owner: student._id,
+        status: 'approved',
+        blockchainTxHash: { $exists: true, $ne: null } // Only documents that have been added to blockchain
+      });
+      
+      // Format response
+      const documents = approvedDocs.map(doc => ({
+        id: doc._id,
+        title: doc.title,
+        documentType: doc.documentType,
+        status: doc.status,
+        documentHash: doc.documentHash,
+        blockchainTxHash: doc.blockchainTxHash,
+        blockchainBlockNumber: doc.blockchainBlockNumber,
+        blockchainTimestamp: doc.blockchainTimestamp,
+        reviewDate: doc.reviewDate
+      }));
       
       res.json({
         applicationId,
         documents
       });
     } catch (error) {
-      console.error('Error fetching student documents from blockchain:', error);
+      console.error('Error fetching student blockchain documents:', error);
       res.status(500).json({ message: 'Error fetching blockchain documents' });
     }
   }
 );
-/**
- * Get document file for verification
- */
-router.get(
-  '/documents/:id/file',
-  auth,
-  async (req, res) => {
+
+// Add isConnected method to blockchainService if it doesn't exist
+if (!blockchainService.isConnected) {
+  blockchainService.isConnected = async function() {
     try {
-      const document = await Document.findById(req.params.id);
-      
-      if (!document) {
-        return res.status(404).json({ message: 'Document not found' });
+      if (this.provider) {
+        const network = await this.provider.getNetwork();
+        return true;
       }
-      
-      // Check if this is the document owner or an admin/staff
-      if (document.owner.toString() !== req.user._id.toString() && 
-          req.user.role !== 'admin' && req.user.role !== 'staff') {
-        return res.status(403).json({ message: 'Unauthorized to access this document' });
-      }
-      
-      // Fetch the actual file from your storage system
-      // This implementation will depend on how you're storing files
-      
-      // Example for files stored in filesystem:
-      const filePath = path.join(__dirname, '..', 'uploads', document.filePath);
-      res.sendFile(filePath);
-      
-      // Example for files stored in database:
-      // res.set('Content-Type', document.mimeType);
-      // res.send(document.fileData);
+      return false;
     } catch (error) {
-      console.error('Error fetching document file:', error);
-      res.status(500).json({ message: 'Error fetching document file' });
+      console.error('Network connectivity check failed:', error.message);
+      return false;
     }
+  };
+}
+router.get('/diagnose', async (req, res) => {
+  try {
+    const diagnosis = await blockchainService.diagnoseContract();
+    res.json(diagnosis);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-);
+});
 module.exports = router;
