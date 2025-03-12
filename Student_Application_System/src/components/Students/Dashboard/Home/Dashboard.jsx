@@ -210,7 +210,7 @@ const Dashboard = () => {
               <h3 className="font-medium">Document Security</h3>
             </div>
             <p className="text-sm text-gray-600">
-              Your documents are securely hashed and stored on the blockchain, providing tamper-proof verification.
+              Your documents once approved are securely hashed and stored on the blockchain, providing tamper-proof verification.
               {documentStats.onBlockchain > 0 && (
                 <span className="block mt-1 text-green-600">
                   {documentStats.onBlockchain} of your {documentStats.total} documents are blockchain verified.
