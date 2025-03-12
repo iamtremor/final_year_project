@@ -228,7 +228,96 @@ router.get(
     }
   }
 );
-
+// Get blockchain status for all students
+router.get(
+  '/students/status',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      console.log('Admin requesting blockchain student status');
+      
+      // Get all students from database
+      const students = await User.find({ role: 'student' }).select('-password');
+      console.log(`Found ${students.length} students in database`);
+      
+      // Check blockchain connection
+      let blockchainConnected = false;
+      try {
+        blockchainConnected = await blockchainService.isConnected();
+      } catch (connError) {
+        console.error('Error checking blockchain connection:', connError);
+      }
+      
+      // Calculate stats based on database records
+      const stats = {
+        total: students.length,
+        registered: students.filter(s => s.blockchainRegistrationStatus === 'success').length,
+        pending: students.filter(s => s.blockchainRegistrationStatus === 'pending').length,
+        failed: students.filter(s => s.blockchainRegistrationStatus === 'failed').length
+      };
+      
+      // If blockchain is not connected, just return DB stats
+      if (!blockchainConnected) {
+        return res.json({
+          students,
+          stats,
+          blockchainConnected: false
+        });
+      }
+      
+      // Check blockchain for each student
+      const studentsWithBlockchainData = await Promise.all(
+        students.map(async (student) => {
+          if (!student.applicationId) {
+            return {
+              ...student.toObject(),
+              blockchainExists: false,
+              blockchainVerified: false
+            };
+          }
+          
+          try {
+            const blockchainStatus = await blockchainService.getStudentStatus(student.applicationId);
+            
+            // Convert mongoose document to plain object and add blockchain data
+            const studentObj = student.toObject();
+            studentObj.blockchainExists = blockchainStatus.exists;
+            studentObj.blockchainVerified = blockchainStatus.verified;
+            
+            // If blockchain says registered but DB doesn't, update DB
+            if (blockchainStatus.exists && student.blockchainRegistrationStatus !== 'success') {
+              student.blockchainRegistrationStatus = 'success';
+              student.blockchainTxHash = 'verified_from_blockchain';
+              await student.save();
+              console.log(`Updated student ${student.applicationId} based on blockchain data`);
+            }
+            
+            return studentObj;
+          } catch (error) {
+            console.error(`Error getting blockchain status for student ${student.applicationId}:`, error);
+            const studentObj = student.toObject();
+            studentObj.blockchainError = error.message;
+            return studentObj;
+          }
+        })
+      );
+      
+      // Return enhanced data
+      res.json({
+        students: studentsWithBlockchainData,
+        stats,
+        blockchainConnected
+      });
+    } catch (error) {
+      console.error('Error fetching students blockchain status:', error);
+      res.status(500).json({ 
+        message: 'Error fetching blockchain status',
+        error: error.message
+      });
+    }
+  }
+);  
 // Get student status from blockchain
 router.get(
   '/students/:applicationId',
@@ -359,65 +448,9 @@ if (!blockchainService.isConnected) {
 // Add these routes to your blockchainRoutes.js file
 
 // Get blockchain status for all students
-router.get(
-  '/students/status',
-  auth,
-  checkRole('admin'),
-  async (req, res) => {
-    try {
-      console.log('Admin requesting blockchain student status');
-      
-      // Get all students from database
-      const students = await User.find({ role: 'student' }).select('-password');
-      console.log(`Found ${students.length} students in database`);
-      
-      // Check if we need to add default status for any students
-      let updatedCount = 0;
-      for (const student of students) {
-        if (student.blockchainRegistrationStatus === undefined) {
-          student.blockchainRegistrationStatus = 'pending';
-          await student.save();
-          updatedCount++;
-        }
-      }
-      
-      if (updatedCount > 0) {
-        console.log(`Updated ${updatedCount} students with default blockchain status`);
-      }
-      
-      // Calculate stats
-      const stats = {
-        total: students.length,
-        registered: students.filter(s => s.blockchainRegistrationStatus === 'success').length,
-        pending: students.filter(s => s.blockchainRegistrationStatus === 'pending').length,
-        failed: students.filter(s => s.blockchainRegistrationStatus === 'failed').length
-      };
-      
-      console.log('Blockchain registration stats:', stats);
-      
-      // Add blockchain connection status
-      let blockchainStatus = false;
-      try {
-        blockchainStatus = await blockchainService.isConnected();
-      } catch (connError) {
-        console.error('Error checking blockchain connection:', connError);
-      }
-      
-      // Return students and stats
-      res.json({
-        students,
-        stats,
-        blockchainConnected: blockchainStatus
-      });
-    } catch (error) {
-      console.error('Error fetching students blockchain status:', error);
-      res.status(500).json({ 
-        message: 'Error fetching blockchain status',
-        error: error.message
-      });
-    }
-  }
-);
+// Add this to your blockchainRoutes.js file, replacing the existing students/status route
+
+
 // Manually register a student on blockchain
 router.post(
   '/students/register/:applicationId',

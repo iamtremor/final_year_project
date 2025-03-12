@@ -492,6 +492,17 @@ async isWithinDeadline(applicationId) {
     try {
       console.log(`Getting student status for ${applicationId}...`);
       
+      if (!this.contract) {
+        console.error('Contract not initialized');
+        return {
+          exists: false,
+          verified: false,
+          dataHash: null,
+          registrationTime: null,
+          error: 'Blockchain contract not initialized'
+        };
+      }
+      
       // Get student from blockchain
       const student = await this.contract.students(applicationId);
       
@@ -583,7 +594,22 @@ async isWithinDeadline(applicationId) {
       try {
         const network = await this.provider.getNetwork();
         console.log("Connected to network:", network.name, "chainId:", network.chainId);
-        return true;
+        
+        // Also check if contract is initialized and accessible
+        if (!this.contract) {
+          console.log("Contract not initialized");
+          return false;
+        }
+        
+        // Try a simple view call to verify contract access
+        try {
+          const admin = await this.contract.admin();
+          console.log("Contract connectivity verified, admin:", admin);
+          return true;
+        } catch (contractError) {
+          console.error("Contract connectivity test failed:", contractError.message);
+          return false;
+        }
       } catch (networkError) {
         console.error("Failed to get network:", networkError.message);
         return false;
@@ -593,6 +619,7 @@ async isWithinDeadline(applicationId) {
       return false;
     }
   }
+  
   
   async diagnoseContract() {
     try {
