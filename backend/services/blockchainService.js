@@ -514,26 +514,26 @@ async isWithinDeadline(applicationId) {
       };
     }
   }
-  async diagnoseContract() {
-    try {
-      console.log("Contract address:", this.contract.address);
-      console.log("Contract interface functions:", Object.keys(this.contract.interface.functions));
-      console.log("Contract methods:", Object.keys(this.contract).filter(k => typeof this.contract[k] === 'function'));
+  // async diagnoseContract() {
+  //   try {
+  //     console.log("Contract address:", this.contract.address);
+  //     console.log("Contract interface functions:", Object.keys(this.contract.interface.functions));
+  //     console.log("Contract methods:", Object.keys(this.contract).filter(k => typeof this.contract[k] === 'function'));
       
-      // Try calling a known function to test contract connectivity
-      const admin = await this.contract.admin();
-      console.log("Contract admin address:", admin);
+  //     // Try calling a known function to test contract connectivity
+  //     const admin = await this.contract.admin();
+  //     console.log("Contract admin address:", admin);
       
-      return {
-        address: this.contract.address,
-        functions: Object.keys(this.contract.interface.functions),
-        methods: Object.keys(this.contract).filter(k => typeof this.contract[k] === 'function')
-      };
-    } catch (error) {
-      console.error("Contract diagnosis error:", error);
-      throw error;
-    }
-  }
+  //     return {
+  //       address: this.contract.address,
+  //       functions: Object.keys(this.contract.interface.functions),
+  //       methods: Object.keys(this.contract).filter(k => typeof this.contract[k] === 'function')
+  //     };
+  //   } catch (error) {
+  //     console.error("Contract diagnosis error:", error);
+  //     throw error;
+  //   }
+  // }
   /**
    * Verify document integrity by comparing hashes
    * @param {string} applicationId - Student's application ID
@@ -570,6 +570,56 @@ async isWithinDeadline(applicationId) {
       };
     } catch (error) {
       console.error('Error verifying document integrity:', error);
+      throw error;
+    }
+  }
+  async isConnected() {
+    try {
+      if (!this.provider) {
+        console.log("No provider configured");
+        return false;
+      }
+      
+      try {
+        const network = await this.provider.getNetwork();
+        console.log("Connected to network:", network.name, "chainId:", network.chainId);
+        return true;
+      } catch (networkError) {
+        console.error("Failed to get network:", networkError.message);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error in isConnected:", error.message);
+      return false;
+    }
+  }
+  
+  async diagnoseContract() {
+    try {
+      if (!this.contract) {
+        return { error: "Contract not initialized" };
+      }
+      
+      console.log("Contract address:", this.contract.address);
+      
+      // Try to get interface functions
+      const functions = Object.keys(this.contract.interface.functions);
+      console.log("Contract has", functions.length, "functions");
+      
+      // Try calling a simple view function
+      try {
+        const admin = await this.contract.admin();
+        console.log("Contract admin address:", admin);
+      } catch (callError) {
+        console.error("Error calling contract.admin():", callError);
+      }
+      
+      return {
+        address: this.contract.address,
+        functions: functions
+      };
+    } catch (error) {
+      console.error("Contract diagnosis error:", error);
       throw error;
     }
   }

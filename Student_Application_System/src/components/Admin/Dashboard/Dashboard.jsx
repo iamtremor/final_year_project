@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { FaUsers } from "react-icons/fa";
-import { AiOutlineClockCircle, AiOutlineBarChart } from "react-icons/ai";
-import { HiOutlineDocumentSearch } from "react-icons/hi";
+import React, { useState, useEffect, useCallback } from "react";
+import { FaUsers, FaEthereum, FaRegTimesCircle } from "react-icons/fa";
+import { FiCheckCircle, FiRefreshCw, FiXCircle, FiClock } from "react-icons/fi";
 import { IoMdNotificationsOutline } from "react-icons/io";
 import { Link } from "react-router-dom";
 import { IoIosArrowForward } from "react-icons/io";
-import { FaHourglassHalf, FaRegTimesCircle, FaEthereum } from "react-icons/fa";
-import { FiCheckCircle, FiRefreshCw, FiXCircle, FiClock } from "react-icons/fi";
 import RecentActivity from "./RecentActivity";
 import DataTable from "react-data-table-component";
 import axios from "axios";
@@ -22,65 +19,150 @@ const AdminDashboard = () => {
   const [recentBlockchainActivity, setRecentBlockchainActivity] = useState([]);
   const [loadingBlockchain, setLoadingBlockchain] = useState(true);
   const [refreshingBlockchain, setRefreshingBlockchain] = useState(false);
+  const [blockchainError, setBlockchainError] = useState(null);
 
-  // Fetch blockchain registration data
-  const fetchBlockchainData = async () => {
+  // Create fetchBlockchainData as a useCallback to prevent recreation on each render
+  const fetchBlockchainData = useCallback(async () => {
+    // Reset error state before fetching
+    setBlockchainError(null);
+    
     try {
+      console.log("Starting blockchain data fetch...");
       setLoadingBlockchain(true);
+      
+      // Get auth token
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+      
+      console.log("Making API request to /api/blockchain/students/status");
       const response = await axios.get('/api/blockchain/students/status', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       
-      if (response.data) {
-        // Update stats
-        setBlockchainStats(response.data.stats || {
-          total: 0,
-          registered: 0,
-          pending: 0,
-          failed: 0
+      console.log("API response status:", response.status);
+      
+      // Check for valid response
+      if (!response.data) {
+        throw new Error("Empty response from server");
+      }
+      
+      console.log("Response data:", response.data);
+      
+      // Set the blockchain stats
+      const stats = response.data.stats || {
+        total: 0,
+        registered: 0,
+        pending: 0,
+        failed: 0
+      };
+      
+      console.log("Setting blockchain stats:", stats);
+      setBlockchainStats(stats);
+      
+      // Process student activity data if available
+      if (Array.isArray(response.data.students)) {
+        console.log("Found", response.data.students.length, "students in response");
+        
+        // Sort by most recent activity
+        const sortedStudents = [...response.data.students].sort((a, b) => {
+          const dateA = new Date(a.lastBlockchainRegistrationAttempt || a.createdAt || 0);
+          const dateB = new Date(b.lastBlockchainRegistrationAttempt || b.createdAt || 0);
+          return dateB - dateA;
         });
         
-        // Set recent activity (latest 5 students)
-        if (Array.isArray(response.data.students)) {
-          // Sort by last attempt date or creation date, newest first
-          const sortedStudents = response.data.students.sort((a, b) => {
-            const dateA = a.lastBlockchainRegistrationAttempt || a.createdAt;
-            const dateB = b.lastBlockchainRegistrationAttempt || b.createdAt;
-            return new Date(dateB) - new Date(dateA);
-          });
-          
-          // Take the first 5
-          setRecentBlockchainActivity(sortedStudents.slice(0, 5));
-        }
+        // Take the first 5 for recent activity
+        const recentStudents = sortedStudents.slice(0, 5);
+        console.log("Setting recent activity with", recentStudents.length, "students");
+        setRecentBlockchainActivity(recentStudents);
+      } else {
+        console.warn("No students array in response or it's not an array");
+        setRecentBlockchainActivity([]);
       }
     } catch (error) {
       console.error("Error fetching blockchain data:", error);
+      
+      // Set error state with user-friendly message
+      setBlockchainError(
+        error.response?.data?.message || 
+        error.message || 
+        "Failed to fetch blockchain data"
+      );
+      
+      // Keep previous stats in case of error
+      // This prevents resetting to 0 if there's a temporary API issue
     } finally {
       setLoadingBlockchain(false);
     }
-  };
+  }, []); // No dependencies for useCallback
 
   // Trigger the background job to register unregistered students
   const handleRegisterAllStudents = async () => {
     try {
+      console.log("Triggering manual blockchain registration of all students");
       setRefreshingBlockchain(true);
+      setBlockchainError(null);
+      
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+      
+      // First, check blockchain connection
+      try {
+        const diagnoseResponse = await axios.get('/api/blockchain/diagnose', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        console.log("Blockchain diagnostic results:", diagnoseResponse.data);
+        
+        if (!diagnoseResponse.data.connection?.isConnected) {
+          alert("Warning: Blockchain connection is not established. Registration may fail.");
+        }
+      } catch (diagnoseError) {
+        console.error("Error checking blockchain connection:", diagnoseError);
+      }
+      
+      // Call the API to trigger registration
       const response = await axios.post('/api/blockchain/jobs/register-unregistered', {}, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       
-      if (response.data.success) {
-        alert(`Job completed: ${response.data.success} students registered, ${response.data.failure} failures`);
-        fetchBlockchainData();
+      console.log("Registration job response:", response.data);
+      
+      if (response.data) {
+        const successCount = response.data.success || 0;
+        const failureCount = response.data.failure || 0;
+        
+        let message = `Registration job completed: ${successCount} students registered`;
+        if (failureCount > 0) {
+          message += `, ${failureCount} failures`;
+        }
+        
+        // Show feedback to user
+        alert(message);
+        
+        // Refresh data after a short delay
+        setTimeout(() => {
+          fetchBlockchainData();
+        }, 1000);
       }
     } catch (error) {
       console.error("Error triggering registration job:", error);
-      alert(`Failed to trigger registration job: ${error.response?.data?.message || error.message}`);
+      
+      setBlockchainError(
+        error.response?.data?.message || 
+        error.message || 
+        "Failed to trigger registration job"
+      );
+      
+      alert(`Failed to trigger registration: ${error.response?.data?.message || error.message}`);
     } finally {
       setRefreshingBlockchain(false);
     }
@@ -88,8 +170,18 @@ const AdminDashboard = () => {
 
   // Fetch data when component mounts
   useEffect(() => {
+    console.log("Dashboard component mounted");
     fetchBlockchainData();
-  }, []);
+    
+    // Optional: Set up periodic refresh
+    const refreshInterval = setInterval(() => {
+      console.log("Auto-refreshing blockchain data");
+      fetchBlockchainData();
+    }, 60000); // Refresh every minute
+    
+    // Clean up interval on unmount
+    return () => clearInterval(refreshInterval);
+  }, [fetchBlockchainData]); // Include fetchBlockchainData in dependencies
 
   // Define blockchain activity columns for the data table
   const blockchainActivityColumns = [
@@ -108,15 +200,15 @@ const AdminDashboard = () => {
       selector: (row) => (
         <div className="flex items-center">
           {row.blockchainRegistrationStatus === 'success' ? (
-            <span className="text-green-600 flex items-center">
+            <span className="text-green-600 flex items-center bg-green-100 py-1 px-2 rounded">
               <FiCheckCircle className="mr-1" /> Registered
             </span>
           ) : row.blockchainRegistrationStatus === 'pending' ? (
-            <span className="text-yellow-600 flex items-center">
+            <span className="text-yellow-600 flex items-center bg-yellow-100 py-1 px-2 rounded">
               <FiClock className="mr-1" /> Pending
             </span>
           ) : (
-            <span className="text-red-600 flex items-center">
+            <span className="text-red-600 flex items-center bg-red-100 py-1 px-2 rounded">
               <FiXCircle className="mr-1" /> Failed
             </span>
           )}
@@ -159,7 +251,7 @@ const AdminDashboard = () => {
           <FaUsers size={30} className="text-[#C3A135] mr-4" />
           <div>
             <h3 className="text-sm font-bold">Total Users</h3>
-            <p className="text-gray-300 ">1,250</p>
+            <p className="text-gray-300 ">{blockchainStats.total}</p>
             <div className="flex items-center mt-3">
               <Link
                 to="/admin/manage-user-user-list"
@@ -236,7 +328,7 @@ const AdminDashboard = () => {
             <button
               onClick={handleRegisterAllStudents}
               className="bg-[#C3A135] text-white px-4 py-2 rounded-md flex items-center mr-2"
-              disabled={refreshingBlockchain}
+              disabled={refreshingBlockchain || loadingBlockchain}
             >
               {refreshingBlockchain ? (
                 <>
@@ -259,6 +351,50 @@ const AdminDashboard = () => {
           </div>
         </div>
         
+        {/* Error Message */}
+        {blockchainError && (
+          <div className="bg-red-50 text-red-700 p-3 rounded-md mb-4">
+            <p className="flex items-center">
+              <FiXCircle className="mr-2" /> 
+              Error: {blockchainError}
+            </p>
+            <p className="text-sm mt-1">
+              Try refreshing the page or check server logs for more information.
+            </p>
+          </div>
+        )}
+        
+        {/* Loading State */}
+        {loadingBlockchain && (
+          <div className="bg-blue-50 text-blue-700 p-3 rounded-md mb-4">
+            <p className="flex items-center">
+              <FiRefreshCw className="mr-2 animate-spin" /> 
+              Loading blockchain registration data...
+            </p>
+          </div>
+        )}
+        
+        {/* Status Messages */}
+        {!loadingBlockchain && !blockchainError && (
+          <>
+            {blockchainStats.total === 0 ? (
+              <div className="bg-yellow-50 text-yellow-700 p-3 rounded-md mb-4">
+                <p>No student records found. Please add students to register them on the blockchain.</p>
+              </div>
+            ) : blockchainStats.registered === 0 && blockchainStats.pending > 0 ? (
+              <div className="bg-yellow-50 text-yellow-700 p-3 rounded-md mb-4">
+                <p className="flex items-center mb-2">
+                  <FiClock className="mr-2" /> 
+                  All students are pending blockchain registration.
+                </p>
+                <p className="text-sm">
+                  Click "Register All" to process them. This may take a few moments.
+                </p>
+              </div>
+            ) : null}
+          </>
+        )}
+        
         {/* Blockchain Stats Cards */}
         <div className="grid grid-cols-4 gap-4 mb-4">
           <div className="bg-white shadow-sm rounded-lg p-4 border-l-4 border-[#1E3A8A]">
@@ -267,7 +403,9 @@ const AdminDashboard = () => {
           </div>
           <div className="bg-white shadow-sm rounded-lg p-4 border-l-4 border-green-500">
             <h4 className="text-green-600 text-sm">Registered</h4>
-            <p className="text-2xl font-semibold text-green-600">{blockchainStats.registered}</p>
+            <p className="text-2xl font-semibold text-green-600">
+              {blockchainStats.registered}
+            </p>
           </div>
           <div className="bg-white shadow-sm rounded-lg p-4 border-l-4 border-yellow-500">
             <h4 className="text-yellow-600 text-sm">Pending</h4>
@@ -286,6 +424,10 @@ const AdminDashboard = () => {
             <div className="text-center py-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1E3A8A] mx-auto"></div>
               <p className="mt-2 text-gray-500">Loading blockchain data...</p>
+            </div>
+          ) : blockchainError ? (
+            <div className="text-center py-4">
+              <p className="text-red-500">Error loading blockchain activity</p>
             </div>
           ) : recentBlockchainActivity.length > 0 ? (
             <DataTable

@@ -347,14 +347,14 @@ if (!blockchainService.isConnected) {
   };
 }
 //shows all the functions in the smart contract
-router.get('/diagnose', async (req, res) => {
-  try {
-    const diagnosis = await blockchainService.diagnoseContract();
-    res.json(diagnosis);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// router.get('/diagnose', async (req, res) => {
+//   try {
+//     const diagnosis = await blockchainService.diagnoseContract();
+//     res.json(diagnosis);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
 
 // Add these routes to your blockchainRoutes.js file
 
@@ -365,8 +365,25 @@ router.get(
   checkRole('admin'),
   async (req, res) => {
     try {
+      console.log('Admin requesting blockchain student status');
+      
       // Get all students from database
       const students = await User.find({ role: 'student' }).select('-password');
+      console.log(`Found ${students.length} students in database`);
+      
+      // Check if we need to add default status for any students
+      let updatedCount = 0;
+      for (const student of students) {
+        if (student.blockchainRegistrationStatus === undefined) {
+          student.blockchainRegistrationStatus = 'pending';
+          await student.save();
+          updatedCount++;
+        }
+      }
+      
+      if (updatedCount > 0) {
+        console.log(`Updated ${updatedCount} students with default blockchain status`);
+      }
       
       // Calculate stats
       const stats = {
@@ -376,18 +393,31 @@ router.get(
         failed: students.filter(s => s.blockchainRegistrationStatus === 'failed').length
       };
       
+      console.log('Blockchain registration stats:', stats);
+      
+      // Add blockchain connection status
+      let blockchainStatus = false;
+      try {
+        blockchainStatus = await blockchainService.isConnected();
+      } catch (connError) {
+        console.error('Error checking blockchain connection:', connError);
+      }
+      
       // Return students and stats
       res.json({
         students,
-        stats
+        stats,
+        blockchainConnected: blockchainStatus
       });
     } catch (error) {
       console.error('Error fetching students blockchain status:', error);
-      res.status(500).json({ message: 'Server error' });
+      res.status(500).json({ 
+        message: 'Error fetching blockchain status',
+        error: error.message
+      });
     }
   }
 );
-
 // Manually register a student on blockchain
 router.post(
   '/students/register/:applicationId',
@@ -497,4 +527,30 @@ router.post(
     }
   }
 )
+router.get('/diagnose', async (req, res) => {
+  try {
+    const diagnosis = await blockchainService.diagnoseContract();
+    res.json({
+      connection: {
+        provider: blockchainService.provider ? 
+          blockchainService.provider.connection.url : 'Not configured',
+        isConnected: await blockchainService.isConnected()
+      },
+      contract: {
+        address: blockchainService.contract ? blockchainService.contract.address : 'Not configured',
+        functions: diagnosis ? diagnosis.functions : []
+      },
+      environment: {
+        nodeEnv: process.env.NODE_ENV,
+        blockchainUrl: process.env.BLOCKCHAIN_PROVIDER_URL || config.blockchain.providerUrl
+      }
+    });
+  } catch (error) {
+    console.error("Blockchain diagnostic error:", error);
+    res.status(500).json({ 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
 module.exports = router;
