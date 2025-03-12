@@ -47,10 +47,13 @@ const Announcements = () => {
     setSelectedAnnouncement(announcement);
     setEditModalIsOpen(true);
   };
-  const handleDeleteClick = () => {
-    // setSelectedAnnouncement(announcement);
+  
+  // Function to handle delete click - fixed to pass the announcement
+  const handleDeleteClick = (announcement) => {
+    setSelectedAnnouncement(announcement);
     setDeleteModalIsOpen(true);
   };
+  
   const columns = [
     { name: "Title", selector: (row) => row.title, sortable: true },
     { name: "Audience", selector: (row) => row.audience, sortable: true },
@@ -127,10 +130,12 @@ const Announcements = () => {
         onClose={() => setEditModalIsOpen(false)}
         announcement={selectedAnnouncement}
       />
+      
+      {/* Delete Modal - now passing selectedAnnouncement */}
       <DeleteModal
         isOpen={deleteModalIsOpen}
         onClose={() => setDeleteModalIsOpen(false)}
-        // announcement={selectedAnnouncement}
+        announcement={selectedAnnouncement}
       />
     </div>
   );

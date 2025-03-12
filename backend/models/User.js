@@ -1,3 +1,4 @@
+// backend/models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -53,6 +54,19 @@ const UserSchema = new mongoose.Schema({
   },
   blockchainBlockNumber: {
     type: Number
+  },
+  // New fields for retry mechanism
+  blockchainRegistrationAttempts: {
+    type: Number,
+    default: 0
+  },
+  lastBlockchainRegistrationAttempt: {
+    type: Date
+  },
+  blockchainRegistrationStatus: {
+    type: String,
+    enum: ['pending', 'success', 'failed'],
+    default: 'pending'
   },
   // User creation timestamp
   createdAt: {

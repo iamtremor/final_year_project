@@ -185,6 +185,7 @@ router.post(
 );
 
 // Check if within deadline
+// Check if within deadline
 router.get(
   '/applications/within-deadline/:applicationId',
   auth,
@@ -192,14 +193,38 @@ router.get(
     try {
       const { applicationId } = req.params;
       
-      const result = await blockchainService.isWithinDeadline(applicationId);
+      if (!applicationId) {
+        return res.status(400).json({ 
+          message: 'Application ID is required',
+          isWithinDeadline: true // Default to true if no ID provided
+        });
+      }
       
-      res.json({
-        isWithinDeadline: result
-      });
+      try {
+        // Attempt to get deadline status from blockchain
+        const result = await blockchainService.isWithinDeadline(applicationId);
+        
+        res.json({
+          isWithinDeadline: result
+        });
+      } catch (blockchainError) {
+        console.error('Blockchain deadline check error:', blockchainError);
+        
+        // In case of any blockchain errors, default to allowing submissions
+        res.json({
+          isWithinDeadline: true,
+          error: 'Error checking blockchain deadline, defaulting to allow submissions',
+          details: blockchainError.message
+        });
+      }
     } catch (error) {
-      console.error('Blockchain deadline check error:', error);
-      res.status(500).json({ message: 'Error checking deadline on blockchain' });
+      console.error('General error in deadline check endpoint:', error);
+      
+      // Always default to allowing submissions in case of errors
+      res.json({ 
+        isWithinDeadline: true,
+        error: 'Error processing request, defaulting to allow submissions' 
+      });
     }
   }
 );
@@ -321,6 +346,7 @@ if (!blockchainService.isConnected) {
     }
   };
 }
+//shows all the functions in the smart contract
 router.get('/diagnose', async (req, res) => {
   try {
     const diagnosis = await blockchainService.diagnoseContract();
@@ -329,4 +355,146 @@ router.get('/diagnose', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Add these routes to your blockchainRoutes.js file
+
+// Get blockchain status for all students
+router.get(
+  '/students/status',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      // Get all students from database
+      const students = await User.find({ role: 'student' }).select('-password');
+      
+      // Calculate stats
+      const stats = {
+        total: students.length,
+        registered: students.filter(s => s.blockchainRegistrationStatus === 'success').length,
+        pending: students.filter(s => s.blockchainRegistrationStatus === 'pending').length,
+        failed: students.filter(s => s.blockchainRegistrationStatus === 'failed').length
+      };
+      
+      // Return students and stats
+      res.json({
+        students,
+        stats
+      });
+    } catch (error) {
+      console.error('Error fetching students blockchain status:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+);
+
+// Manually register a student on blockchain
+router.post(
+  '/students/register/:applicationId',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      const { applicationId } = req.params;
+      
+      // Find the student
+      const student = await User.findOne({ applicationId, role: 'student' });
+      
+      if (!student) {
+        return res.status(404).json({ message: 'Student not found' });
+      }
+      
+      // Check if already registered on blockchain
+      try {
+        const blockchainStatus = await blockchainService.getStudentStatus(applicationId);
+        
+        if (blockchainStatus.exists) {
+          // Update our database to reflect this if not already marked as successful
+          if (student.blockchainRegistrationStatus !== 'success') {
+            student.blockchainRegistrationStatus = 'success';
+            student.blockchainTxHash = 'manual_verification_existing';
+            await student.save();
+          }
+          
+          return res.json({
+            success: true,
+            message: 'Student already registered on blockchain',
+            alreadyRegistered: true
+          });
+        }
+      } catch (checkError) {
+        console.error('Error checking blockchain status:', checkError);
+        // Continue with registration attempt
+      }
+      
+      // Create student data object for blockchain
+      const studentData = {
+        fullName: student.fullName,
+        email: student.email,
+        applicationId: student.applicationId,
+        registrationTimestamp: new Date().toISOString()
+      };
+      
+      // Register on blockchain
+      const blockchainResult = await blockchainService.registerStudent(applicationId, studentData);
+      
+      // Log action on blockchain
+      await blockchainService.logAction(
+        applicationId,
+        "ACCOUNT_CREATED_MANUAL",
+        `Student account created manually by admin: ${student.fullName} (${student.email})`
+      );
+      
+      // Update student record
+      student.blockchainTxHash = blockchainResult.transactionHash;
+      student.blockchainBlockNumber = blockchainResult.blockNumber;
+      student.blockchainRegistrationStatus = 'success';
+      student.blockchainRegistrationAttempts = (student.blockchainRegistrationAttempts || 0) + 1;
+      student.lastBlockchainRegistrationAttempt = Date.now();
+      await student.save();
+      
+      res.json({
+        success: true,
+        message: 'Student registered on blockchain successfully',
+        transaction: blockchainResult
+      });
+    } catch (error) {
+      console.error('Error registering student on blockchain:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error registering student on blockchain',
+        error: error.message
+      });
+    }
+  }
+);
+
+// Trigger the background job to register unregistered students
+router.post(
+  '/jobs/register-unregistered',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      const { scheduler } = require('../jobs/scheduler');
+      const { registerUnregisteredStudents } = require('../jobs/blockchainRegistrationJob');
+      
+      // Run the job immediately
+      const result = await scheduler.runJobNow('registerUnregisteredStudents', registerUnregisteredStudents);
+      
+      res.json({
+        success: result.success,
+        failure: result.failure,
+        message: `Job completed: ${result.success} students registered, ${result.failure} failures`
+      });
+    } catch (error) {
+      console.error('Error triggering registration job:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error triggering registration job',
+        error: error.message
+      });
+    }
+  }
+)
 module.exports = router;

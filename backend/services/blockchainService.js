@@ -432,29 +432,57 @@ async logAction(applicationId, action, details) {
    * @param {string} applicationId - Student's application ID
    * @returns {boolean} - True if within deadline, false otherwise
    */
-  async isWithinDeadline(applicationId) {
+ /**
+ * Check if document submission is within deadline
+ * @param {string} applicationId - Student's application ID
+ * @returns {boolean} - True if within deadline, false otherwise
+ */
+async isWithinDeadline(applicationId) {
+  try {
+    console.log(`Checking deadline for ${applicationId}...`);
+    
+    // First check if application exists on blockchain
     try {
-      console.log(`Checking deadline for ${applicationId}...`);
+      const application = await this.contract.applications(applicationId, {
+        gasLimit: 200000 // Add explicit gas limit for read operations
+      });
       
-      // Try to get the actual deadline from the blockchain
-      try {
-        const result = await this.contract.isWithinDeadline(applicationId, {
-          gasLimit: 200000 // Add explicit gas limit for read operations
-        });
-        console.log(`Deadline check result: ${result}`);
-        return result;
-      } catch (blockchainError) {
-        console.error('Error checking deadline on blockchain:', blockchainError);
-        // Fall back to true if there's an error (being permissive)
+      // If application doesn't exist, return true (being permissive)
+      if (!application.exists) {
+        console.log(`Application ${applicationId} does not exist on blockchain, defaulting to within deadline`);
         return true;
       }
+      
+      // If deadline is not set (is 0), also return true
+      if (application.deadlineTimestamp.toNumber() === 0) {
+        console.log(`No deadline set for ${applicationId}, allowing submission`);
+        return true;
+      }
+      
+      // Check if current time is before deadline
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const deadline = application.deadlineTimestamp.toNumber();
+      const isWithin = now <= deadline;
+      
+      console.log(`Deadline check result for ${applicationId}: ${isWithin} (now: ${now}, deadline: ${deadline})`);
+      return isWithin;
     } catch (error) {
-      console.error('Error in isWithinDeadline function:', error);
-      // Default to true to allow submissions in case of errors
+      // If we get an error specifically saying "Application does not exist"
+      if (error.message.includes("Application does not exist")) {
+        console.log(`Application ${applicationId} confirmed not to exist on blockchain, defaulting to within deadline`);
+        return true;
+      }
+      
+      // For other types of errors, log and default to true (being permissive)
+      console.error('Error checking application existence:', error);
       return true;
     }
+  } catch (error) {
+    console.error('Error in isWithinDeadline function:', error);
+    // Default to true to allow submissions in case of errors
+    return true;
   }
-
+}
   /**
    * Get student verification status
    * @param {string} applicationId - Student's application ID

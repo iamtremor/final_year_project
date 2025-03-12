@@ -4,7 +4,7 @@ const connectDB = require('./config/db');
 const Document = require('./models/Document'); // Add missing import
 const auth = require('./middleware/auth'); // Import auth middleware
 require('dotenv').config();
-
+const { initializeJobs } = require('./jobs/scheduler');
 // Connect to database
 connectDB();
 
@@ -38,4 +38,13 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  // Initialize scheduled jobs
+  try {
+    initializeJobs();
+    console.log('Scheduled jobs initialized successfully');
+  } catch (error) {
+    console.error('Error initializing scheduled jobs:', error);
+  }
+});

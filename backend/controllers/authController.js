@@ -5,6 +5,8 @@ const blockchainService = require('../services/blockchainService'); // Add this 
 // @desc    Register student
 // @route   POST /api/auth/student/register
 // @access  Public
+// Enhanced registerStudent function for authController.js
+
 const registerStudent = async (req, res) => {
   try {
     const { fullName, email, password, applicationId } = req.body;
@@ -32,7 +34,10 @@ const registerStudent = async (req, res) => {
       email,
       password,
       applicationId,
-      role: 'student'
+      role: 'student',
+      blockchainRegistrationStatus: 'pending',
+      blockchainRegistrationAttempts: 0,
+      lastBlockchainRegistrationAttempt: Date.now()
     });
     
     await user.save();
@@ -48,6 +53,7 @@ const registerStudent = async (req, res) => {
       };
       
       console.log(`Registering student ${applicationId} on blockchain...`);
+      
       // Call blockchain service to register the student
       const blockchainResult = await blockchainService.registerStudent(applicationId, studentData);
       console.log(`Student ${applicationId} registered on blockchain successfully`, blockchainResult);
@@ -62,10 +68,18 @@ const registerStudent = async (req, res) => {
       // Store blockchain transaction details with user
       user.blockchainTxHash = blockchainResult.transactionHash;
       user.blockchainBlockNumber = blockchainResult.blockNumber;
+      user.blockchainRegistrationStatus = 'success';
       await user.save();
     } catch (blockchainError) {
       console.error('Blockchain registration error:', blockchainError);
+      
+      // Update registration attempt information for retry
+      user.blockchainRegistrationAttempts = 1;
+      user.blockchainRegistrationStatus = 'failed';
+      await user.save();
+      
       // We continue with the response, not failing if blockchain has issues
+      // The background job will retry the registration later
     }
     
     // Generate JWT token
