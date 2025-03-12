@@ -23,81 +23,57 @@ const AdminDashboard = () => {
 
   // Create fetchBlockchainData as a useCallback to prevent recreation on each render
   const fetchBlockchainData = useCallback(async () => {
-    // Reset error state before fetching
-    setBlockchainError(null);
-    
     try {
-      console.log("Starting blockchain data fetch...");
-      setLoadingBlockchain(true);
-      
-      // Get auth token
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error("No authentication token found");
       }
-      
-      console.log("Making API request to /api/blockchain/students/status");
+  
       const response = await axios.get('/api/blockchain/students/status', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`
         }
       });
-      
-      console.log("API response status:", response.status);
-      
-      // Check for valid response
-      if (!response.data) {
-        throw new Error("Empty response from server");
-      }
-      
-      console.log("Response data:", response.data);
-      
-      // Set the blockchain stats
+  
+      console.log('Full API Response:', response.data);
+  
+      // Extract stats from the response
       const stats = response.data.stats || {
-        total: 0,
-        registered: 0,
-        pending: 0,
-        failed: 0
+        total: response.data.students?.length || 0,
+        registered: response.data.students?.filter(s => 
+          s.blockchainRegistrationStatus === 'success'
+        ).length || 0,
+        pending: response.data.students?.filter(s => 
+          s.blockchainRegistrationStatus === 'pending'
+        ).length || 0,
+        failed: response.data.students?.filter(s => 
+          s.blockchainRegistrationStatus === 'failed'
+        ).length || 0
       };
+  
+      console.log('Extracted Stats:', stats);
       
-      console.log("Setting blockchain stats:", stats);
       setBlockchainStats(stats);
-      
-      // Process student activity data if available
-      if (Array.isArray(response.data.students)) {
-        console.log("Found", response.data.students.length, "students in response");
-        
-        // Sort by most recent activity
-        const sortedStudents = [...response.data.students].sort((a, b) => {
-          const dateA = new Date(a.lastBlockchainRegistrationAttempt || a.createdAt || 0);
-          const dateB = new Date(b.lastBlockchainRegistrationAttempt || b.createdAt || 0);
-          return dateB - dateA;
-        });
-        
-        // Take the first 5 for recent activity
-        const recentStudents = sortedStudents.slice(0, 5);
-        console.log("Setting recent activity with", recentStudents.length, "students");
-        setRecentBlockchainActivity(recentStudents);
-      } else {
-        console.warn("No students array in response or it's not an array");
-        setRecentBlockchainActivity([]);
-      }
+  
+      // Process recent blockchain activity
+      const recentActivity = response.data.students
+        ?.sort((a, b) => new Date(b.lastBlockchainRegistrationAttempt || b.createdAt) - 
+                         new Date(a.lastBlockchainRegistrationAttempt || a.createdAt))
+        .slice(0, 5) || [];
+  
+      setRecentBlockchainActivity(recentActivity);
+  
     } catch (error) {
-      console.error("Error fetching blockchain data:", error);
-      
-      // Set error state with user-friendly message
+      console.error('Error fetching blockchain data:', error);
       setBlockchainError(
         error.response?.data?.message || 
         error.message || 
-        "Failed to fetch blockchain data"
+        'Failed to fetch blockchain data'
       );
-      
-      // Keep previous stats in case of error
-      // This prevents resetting to 0 if there's a temporary API issue
     } finally {
       setLoadingBlockchain(false);
     }
-  }, []); // No dependencies for useCallback
+  }, []); // No dependencies for useCallback // No dependencies for useCallback
 
   // Trigger the background job to register unregistered students
   const handleRegisterAllStudents = async () => {
