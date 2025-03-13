@@ -14,6 +14,13 @@ import axios from "axios";
 
 const Profile = () => {
   const { user } = useAuth();
+  const [documentStats, setDocumentStats] = useState({
+      total: 0,
+      approved: 0,
+      pending: 0,
+      rejected: 0,
+      onBlockchain: 0
+    });
   const [profile, setProfile] = useState({
     fullName: "",
     email: "",
@@ -24,12 +31,68 @@ const Profile = () => {
     profileImage: "https://via.placeholder.com/150"
   });
   const [loading, setLoading] = useState(true);
+  const [documents, setDocuments] = useState([]);
+  const [blockchainDocuments, setBlockchainDocuments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isWithinDeadline, setIsWithinDeadline] = useState(true);
   
   // Fetch user profile data on component mount
   useEffect(() => {
     fetchProfileData();
   }, []);
-  
+  useEffect(() => {
+    const fetchDocumentStats = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Get all documents for the student
+        const response = await axios.get('/api/documents/student');
+        const docs = response.data;
+        setDocuments(docs);
+        
+        // Calculate stats
+        const approved = docs.filter(doc => doc.status === 'approved').length;
+        const pending = docs.filter(doc => doc.status === 'pending').length;
+        const rejected = docs.filter(doc => doc.status === 'rejected').length;
+        
+        // Get blockchain verified documents
+        const blockchainResponse = await axios.get(`/api/blockchain/student-documents/${user.applicationId}`);
+        const blockchainDocs = blockchainResponse.data.documents || [];
+        setBlockchainDocuments(blockchainDocs);
+        
+        setDocumentStats({
+          total: docs.length,
+          approved,
+          pending,
+          rejected,
+          onBlockchain: blockchainDocs.length
+        });
+        
+        // Check deadline
+        if (user?.applicationId) {
+          const deadlineResponse = await axios.get(
+            `/api/blockchain/applications/within-deadline/${user.applicationId}`
+          );
+          setIsWithinDeadline(deadlineResponse.data.isWithinDeadline);
+        }
+      } catch (error) {
+        console.error("Error fetching document stats:", error);
+        // Set some default values if there's an error
+        setDocumentStats({
+          total: 0,
+          approved: 0,
+          pending: 0,
+          onBlockchain: 0
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchDocumentStats();
+    }
+  }, [user]);
   // Function to fetch profile data - in a real app, this would call an API
   const fetchProfileData = async () => {
     try {
@@ -147,33 +210,33 @@ const Profile = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">Total Documents</span>
-                  <span className="text-sm font-medium">{profile.documentCount}</span>
+                  <span className="text-sm font-medium">{documentStats.total}</span>
                 </div>
                 
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">Approved</span>
-                  <span className="text-sm font-medium text-green-600">{profile.approvedDocuments}</span>
+                  <span className="text-sm font-medium text-green-600">{documentStats.approved}</span>
                 </div>
                 
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">Pending</span>
-                  <span className="text-sm font-medium text-yellow-600">{profile.pendingDocuments}</span>
+                  <span className="text-sm font-medium text-yellow-600">{documentStats.pending}</span>
                 </div>
                 
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">Rejected</span>
-                  <span className="text-sm font-medium text-red-600">{profile.rejectedDocuments}</span>
+                  <span className="text-sm font-medium text-red-600">{documentStats.rejected}</span>
                 </div>
               </div>
               
               <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-green-500 to-blue-500"
-                  style={{ width: `${(profile.approvedDocuments / profile.documentCount) * 100}%` }}
+                  style={{ width: `${(documentStats.approved / documentStats.total) * 100}%` }}
                 ></div>
               </div>
               <p className="mt-2 text-xs text-center text-gray-500">
-                {Math.round((profile.approvedDocuments / profile.documentCount) * 100)}% of documents approved
+                {Math.round((documentStats.approved / documentStats.total) * 100)}% of documents approved
               </p>
             </div>
           </div>
