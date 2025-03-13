@@ -5,14 +5,21 @@ const blockchainService = require('../services/blockchainService'); // Add this 
 // @desc    Register student
 // @route   POST /api/auth/student/register
 // @access  Public
-// Enhanced registerStudent function for authController.js
 
 const registerStudent = async (req, res) => {
   try {
-    const { fullName, email, password, applicationId } = req.body;
+    const { 
+      fullName, 
+      email, 
+      password, 
+      applicationId, 
+      phoneNumber, 
+      department, 
+      dateOfBirth 
+    } = req.body;
     
     // Validate required fields
-    if (!fullName || !email || !password || !applicationId) {
+    if (!fullName || !email || !password || !applicationId || !phoneNumber || !department || !dateOfBirth) {
       return res.status(400).json({ message: 'All fields are required' });
     }
     
@@ -28,12 +35,15 @@ const registerStudent = async (req, res) => {
       return res.status(400).json({ message: 'Email is already in use' });
     }
     
-    // Create new student
+    // Create new student with new fields
     user = new User({
       fullName,
       email,
       password,
       applicationId,
+      phoneNumber,
+      department,
+      dateOfBirth: new Date(dateOfBirth), // Convert string to Date object
       role: 'student',
       blockchainRegistrationStatus: 'pending',
       blockchainRegistrationAttempts: 0,
@@ -49,6 +59,9 @@ const registerStudent = async (req, res) => {
         fullName,
         email,
         applicationId,
+        phoneNumber,
+        department,
+        dateOfBirth,
         registrationTimestamp: new Date().toISOString()
       };
       
@@ -93,6 +106,9 @@ const registerStudent = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         applicationId: user.applicationId,
+        phoneNumber: user.phoneNumber,
+        department: user.department,
+        dateOfBirth: user.dateOfBirth,
         role: user.role,
         blockchainRegistered: !!user.blockchainTxHash
       }
@@ -106,12 +122,23 @@ const registerStudent = async (req, res) => {
 // @desc    Register staff
 // @route   POST /api/auth/staff/register
 // @access  Public
+// @desc    Register staff
+// @route   POST /api/auth/staff/register
+// @access  Public
 const registerStaff = async (req, res) => {
   try {
-    const { fullName, email, password, staffId } = req.body;
+    const { 
+      fullName, 
+      email, 
+      password, 
+      staffId, 
+      phoneNumber, 
+      department, 
+      dateOfBirth 
+    } = req.body;
     
     // Validate required fields
-    if (!fullName || !email || !password || !staffId) {
+    if (!fullName || !email || !password || !staffId || !phoneNumber || !department || !dateOfBirth) {
       return res.status(400).json({ message: 'All fields are required' });
     }
     
@@ -133,7 +160,13 @@ const registerStaff = async (req, res) => {
       email,
       password,
       staffId,
-      role: 'staff'
+      phoneNumber,
+      department,
+      dateOfBirth: new Date(dateOfBirth),
+      role: 'staff',
+      blockchainRegistrationStatus: 'pending',
+      blockchainRegistrationAttempts: 0,
+      lastBlockchainRegistrationAttempt: Date.now()
     });
     
     await user.save();
@@ -144,6 +177,9 @@ const registerStaff = async (req, res) => {
         fullName,
         email,
         staffId,
+        phoneNumber,
+        department,
+        dateOfBirth,
         role: 'staff',
         registrationTimestamp: new Date().toISOString()
       };
@@ -171,6 +207,9 @@ const registerStaff = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         staffId: user.staffId,
+        phoneNumber: user.phoneNumber,
+        department: user.department,
+        dateOfBirth: user.dateOfBirth,
         role: user.role
       }
     });
@@ -297,6 +336,9 @@ const loginStudent = async (req, res) => {
 // @desc    Login staff
 // @route   POST /api/auth/staff/login
 // @access  Public
+// @desc    Login staff
+// @route   POST /api/auth/staff/login
+// @access  Public
 const loginStaff = async (req, res) => {
   try {
     const { staffId, password } = req.body;
@@ -321,7 +363,7 @@ const loginStaff = async (req, res) => {
     // Generate JWT token
     const token = generateToken(user._id, user.role);
     
-    // Return user data and token
+    // Return user data and token with new fields
     res.json({
       token,
       user: {
@@ -329,7 +371,11 @@ const loginStaff = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         staffId: user.staffId,
-        role: user.role
+        phoneNumber: user.phoneNumber,
+        department: user.department,
+        dateOfBirth: user.dateOfBirth,
+        role: user.role,
+        blockchainRegistered: !!user.blockchainTxHash
       }
     });
   } catch (error) {

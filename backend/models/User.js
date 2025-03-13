@@ -21,6 +21,26 @@ const UserSchema = new mongoose.Schema({
     enum: ['student', 'staff', 'admin'],
     required: true
   },
+  // Common fields for both students and staff
+  phoneNumber: {
+    type: String,
+    required: function() {
+      return this.role === 'student' || this.role === 'staff';
+    }
+  },
+  department: {
+    type: String,
+    required: function() {
+      return this.role === 'student' || this.role === 'staff';
+    }
+  },
+  dateOfBirth: {
+    type: Date,
+    required: function() {
+      return this.role === 'student' || this.role === 'staff';
+    }
+  },
+  // Student-specific fields
   applicationId: {
     type: String,
     required: function() {
@@ -30,6 +50,7 @@ const UserSchema = new mongoose.Schema({
       return this.role === 'student';
     }
   },
+  // Staff-specific fields
   staffId: {
     type: String,
     required: function() {
@@ -39,6 +60,7 @@ const UserSchema = new mongoose.Schema({
       return this.role === 'staff';
     }
   },
+  // Admin-specific fields
   adminId: {
     type: String,
     required: function() {
@@ -48,14 +70,14 @@ const UserSchema = new mongoose.Schema({
       return this.role === 'admin';
     }
   },
-  // Blockchain transaction details (for student registrations)
+  // Blockchain transaction details
   blockchainTxHash: {
     type: String
   },
   blockchainBlockNumber: {
     type: Number
   },
-  // New fields for retry mechanism
+  // Fields for retry mechanism
   blockchainRegistrationAttempts: {
     type: Number,
     default: 0

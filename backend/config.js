@@ -17,14 +17,14 @@ module.exports = {
     // Blockchain provider URL (Infura, Alchemy, or local node)
     providerUrl: process.env.BLOCKCHAIN_PROVIDER_URL || 'http://127.0.0.1:7545',
     
-    // Smart contract address
-    contractAddress: process.env.CONTRACT_ADDRESS || 0x7ae5337400BdF02A71149F9d400c0a2bD67096cF,
+    // Smart contract address (corrected with quotes)
+    contractAddress: process.env.CONTRACT_ADDRESS || "0x7ae5337400BdF02A71149F9d400c0a2bD67096cF",
     
     // Private key for signing transactions (should be in .env file)
     privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY,
     
     // Gas settings
-    gasLimit: process.env.GAS_LIMIT || 3000000,
+    gasLimit: process.env.GAS_LIMIT || 6000000, // Doubled the gas limit
     
     // Network ID
     networkId: process.env.NETWORK_ID || 1337,

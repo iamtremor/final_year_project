@@ -199,6 +199,184 @@ router.post(
     }
   }
 );
+// Add this to backend/routes/blockchainRoutes.js
+
+// Verify student on blockchain
+router.post(
+  '/students/verify/:applicationId',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      const { applicationId } = req.params;
+      
+      // Find the student
+      const student = await User.findOne({ applicationId, role: 'student' });
+      
+      if (!student) {
+        return res.status(404).json({ message: 'Student not found' });
+      }
+      
+      // Check if already registered on blockchain
+      try {
+        const blockchainStatus = await blockchainService.getStudentStatus(applicationId);
+        
+        if (!blockchainStatus.exists) {
+          return res.status(400).json({ 
+            message: 'Student must be registered on blockchain before verification',
+            exists: false
+          });
+        }
+        
+        if (blockchainStatus.verified) {
+          return res.json({
+            success: true,
+            message: 'Student is already verified on blockchain',
+            alreadyVerified: true
+          });
+        }
+      } catch (checkError) {
+        console.error('Error checking blockchain status:', checkError);
+        return res.status(500).json({
+          message: 'Error checking blockchain status',
+          error: checkError.message
+        });
+      }
+      
+      // Verify on blockchain
+      const blockchainResult = await blockchainService.verifyStudent(applicationId);
+      
+      // Log action on blockchain
+      await blockchainService.logAction(
+        applicationId,
+        "STUDENT_VERIFIED",
+        `Student verified by admin: ${student.fullName} (${student.email})`
+      );
+      
+      // Check if verification was successful
+      const updatedStatus = await blockchainService.getStudentStatus(applicationId);
+      
+      res.json({
+        success: true,
+        verified: updatedStatus.verified,
+        message: updatedStatus.verified
+          ? 'Student verified on blockchain successfully'
+          : 'Verification transaction sent, but verification status is still false',
+        transaction: blockchainResult
+      });
+    } catch (error) {
+      console.error('Error verifying student on blockchain:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error verifying student on blockchain',
+        error: error.message
+      });
+    }
+  }
+);
+
+// Verify all registered students on blockchain
+router.post(
+  '/students/verify-all',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      // Find all students with successful blockchain registration
+      const registeredStudents = await User.find({
+        role: 'student',
+        blockchainRegistrationStatus: 'success'
+      });
+      
+      const results = {
+        total: registeredStudents.length,
+        processed: 0,
+        success: 0,
+        alreadyVerified: 0,
+        failed: 0,
+        details: []
+      };
+      
+      // Process each student
+      for (const student of registeredStudents) {
+        try {
+          results.processed++;
+          
+          // Check if already verified
+          const blockchainStatus = await blockchainService.getStudentStatus(student.applicationId);
+          
+          if (!blockchainStatus.exists) {
+            results.failed++;
+            results.details.push({
+              applicationId: student.applicationId,
+              success: false,
+              reason: 'Student does not exist on blockchain'
+            });
+            continue;
+          }
+          
+          if (blockchainStatus.verified) {
+            results.alreadyVerified++;
+            results.details.push({
+              applicationId: student.applicationId,
+              success: true,
+              alreadyVerified: true
+            });
+            continue;
+          }
+          
+          // Verify the student
+          await blockchainService.verifyStudent(student.applicationId);
+          
+          // Log action
+          await blockchainService.logAction(
+            student.applicationId,
+            "STUDENT_VERIFIED_BATCH",
+            `Student verified in batch process: ${student.fullName}`
+          );
+          
+          // Verify success
+          const updatedStatus = await blockchainService.getStudentStatus(student.applicationId);
+          
+          if (updatedStatus.verified) {
+            results.success++;
+            results.details.push({
+              applicationId: student.applicationId,
+              success: true
+            });
+          } else {
+            results.failed++;
+            results.details.push({
+              applicationId: student.applicationId,
+              success: false,
+              reason: 'Verification transaction sent but not reflected in blockchain'
+            });
+          }
+        } catch (error) {
+          console.error(`Error verifying student ${student.applicationId}:`, error);
+          results.failed++;
+          results.details.push({
+            applicationId: student.applicationId,
+            success: false,
+            error: error.message
+          });
+        }
+      }
+      
+      res.json({
+        success: true,
+        results
+      });
+    } catch (error) {
+      console.error('Error in batch verification:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error in batch verification',
+        error: error.message
+      });
+    }
+  }
+);
 router.get(
   '/student-documents/:applicationId',
   auth,

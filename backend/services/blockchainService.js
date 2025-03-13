@@ -70,7 +70,7 @@ async logAction(applicationId, action, details) {
       action,
       details,
       {
-        gasLimit: 300000
+        gasLimit: 1000000
       }
     );
     
@@ -96,52 +96,54 @@ async logAction(applicationId, action, details) {
    * @param {string} applicationId - Student's application ID
    * @param {Object} studentData - Student's personal information
    */
-  async registerStudent(applicationId, studentData) {
+  // In backend/services/blockchainService.js, update the registerStudent function:
+
+async registerStudent(applicationId, studentData) {
+  try {
+    console.log(`Registering student ${applicationId} on blockchain...`);
+    
+    // Check if student already exists to avoid duplicate registration
     try {
-      console.log(`Registering student ${applicationId} on blockchain...`);
-      
-      // Check if student already exists to avoid duplicate registration
-      try {
-        const student = await this.contract.students(applicationId);
-        if (student.exists) {
-          console.log(`Student ${applicationId} already exists on blockchain`);
-          return {
-            alreadyRegistered: true,
-            applicationId
-          };
-        }
-      } catch (checkError) {
-        console.error('Error checking if student exists:', checkError);
-        // Continue with registration attempt
+      const student = await this.contract.students(applicationId);
+      if (student.exists) {
+        console.log(`Student ${applicationId} already exists on blockchain`);
+        return {
+          alreadyRegistered: true,
+          applicationId
+        };
       }
-      
-      // Create hash of student data
-      const dataHash = this.createHash(studentData);
-      
-      // Send transaction to blockchain with gas limit
-      const tx = await this.contract.registerStudent(applicationId, dataHash, {
-        gasLimit: 500000 // Use an appropriate gas limit
-      });
-      
-      console.log(`Registration transaction sent: ${tx.hash}`);
-      
-      const receipt = await tx.wait();
-      console.log(`Registration transaction confirmed: ${receipt.transactionHash}`);
-      
-      return {
-        transactionHash: receipt.transactionHash,
-        blockNumber: receipt.blockNumber,
-        gasUsed: receipt.gasUsed.toString(),
-        events: receipt.events ? receipt.events.map(event => ({
-          name: event.event,
-          args: event.args
-        })) : []
-      };
-    } catch (error) {
-      console.error('Error registering student on blockchain:', error);
-      throw error;
+    } catch (checkError) {
+      console.error('Error checking if student exists:', checkError);
+      // Continue with registration attempt
     }
+    
+    // Create hash of student data
+    const dataHash = this.createHash(studentData);
+    
+    // Send transaction to blockchain with higher gas limit
+    const tx = await this.contract.registerStudent(applicationId, dataHash, {
+      gasLimit: 1500000 // Increase gas limit from 500000 to 1000000
+    });
+    
+    console.log(`Registration transaction sent: ${tx.hash}`);
+    
+    const receipt = await tx.wait();
+    console.log(`Registration transaction confirmed: ${receipt.transactionHash}`);
+    
+    return {
+      transactionHash: receipt.transactionHash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      events: receipt.events ? receipt.events.map(event => ({
+        name: event.event,
+        args: event.args
+      })) : []
+    };
+  } catch (error) {
+    console.error('Error registering student on blockchain:', error);
+    throw error;
   }
+}
 // Extending the existing blockchainService.js with staff and admin registration
 
 // Add these functions to your existing blockchainService.js file
@@ -150,6 +152,11 @@ async logAction(applicationId, action, details) {
  * Register a staff member on the blockchain
  * @param {string} staffId - Staff ID
  * @param {Object} staffData - Staff member's information
+ */
+/**
+ * Register a staff member on the blockchain
+ * @param {string} staffId - Staff ID
+ * @param {Object} staffData - Staff member's information including new fields
  */
 async registerStaff(staffId, staffData) {
   try {
@@ -173,13 +180,13 @@ async registerStaff(staffId, staffData) {
     // Create hash of staff data
     const dataHash = this.createHash(staffData);
     
-    // Register on blockchain - using same function but with a different prefix
-    // or identifier to distinguish from students
+    // Register on blockchain with higher gas limit
     const tx = await this.contract.registerUser(
       `staff:${staffId}`, 
+      "staff",
       dataHash, 
       {
-        gasLimit: 500000
+        gasLimit: 1000000 // Increased gas limit to prevent out of gas errors
       }
     );
     
@@ -231,7 +238,7 @@ async registerAdmin(adminId, adminData) {
       `admin:${adminId}`, 
       dataHash, 
       {
-        gasLimit: 500000
+        gasLimit: 1000000
       }
     );
     
@@ -362,7 +369,7 @@ async getUserStatus(userId, role) {
       }
       
       const tx = await this.contract.verifyStudent(applicationId, {
-        gasLimit: 300000 // Use an appropriate gas limit
+        gasLimit: 1500000 // Use an appropriate gas limit
       });
       
       console.log(`Verification transaction sent: ${tx.hash}`);
@@ -411,7 +418,7 @@ async getUserStatus(userId, role) {
         documentType, 
         documentHash,
         { 
-          gasLimit: 500000 // Add explicit gas limit
+          gasLimit: 1000000 // Add explicit gas limit
         }
       );
       
@@ -517,7 +524,7 @@ async getUserStatus(userId, role) {
         status, 
         rejectionReason,
         {
-          gasLimit: 500000 // Add explicit gas limit
+          gasLimit: 1000000 // Add explicit gas limit
         }
       );
       
@@ -561,7 +568,7 @@ async getUserStatus(userId, role) {
         applicationId, 
         status,
         {
-          gasLimit: 300000 // Add explicit gas limit
+          gasLimit: 1000000 // Add explicit gas limit
         }
       );
       
@@ -597,7 +604,7 @@ async getUserStatus(userId, role) {
         applicationId, 
         deadlineTimestamp,
         {
-          gasLimit: 300000 // Add explicit gas limit
+          gasLimit: 1000000 // Add explicit gas limit
         }
       );
       
@@ -635,7 +642,7 @@ async isWithinDeadline(applicationId) {
     // First check if application exists on blockchain
     try {
       const application = await this.contract.applications(applicationId, {
-        gasLimit: 200000 // Add explicit gas limit for read operations
+        gasLimit: 1000000 // Add explicit gas limit for read operations
       });
       
       // If application doesn't exist, return true (being permissive)
