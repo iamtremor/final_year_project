@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 const { checkRole, checkRoles } = require('../middleware/roles');
 const Document = require('../models/Document');
 const User = require('../models/User');
-
+const config = require('../config');
 // Storage setup for multer
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -29,206 +29,7 @@ router.get('/status', async (req, res) => {
     });
   }
 });
-
-// Register student on blockchain
-router.post(
-  '/students/register',
-  auth,
-  checkRole('admin'),
-  async (req, res) => {
-    try {
-      const { applicationId, studentData } = req.body;
-      
-      if (!applicationId || !studentData) {
-        return res.status(400).json({ message: 'Application ID and student data are required' });
-      }
-      
-      const result = await blockchainService.registerStudent(applicationId, studentData);
-      
-      res.status(201).json({
-        message: 'Student registered on blockchain',
-        transaction: result
-      });
-    } catch (error) {
-      console.error('Blockchain student registration error:', error);
-      res.status(500).json({ message: 'Error registering student on blockchain' });
-    }
-  }
-);
-
-// Verify student on blockchain
-router.post(
-  '/students/verify/:applicationId',
-  auth,
-  checkRole('staff'),
-  async (req, res) => {
-    try {
-      const { applicationId } = req.params;
-      
-      const result = await blockchainService.verifyStudent(applicationId);
-      
-      res.json({
-        message: 'Student verified on blockchain',
-        transaction: result
-      });
-    } catch (error) {
-      console.error('Blockchain student verification error:', error);
-      res.status(500).json({ message: 'Error verifying student on blockchain' });
-    }
-  }
-);
-
-// This endpoint is no longer used directly - documents are only added when approved by staff
-// Kept for backward compatibility
-router.post(
-  '/documents/upload',
-  auth,
-  upload.single('file'),
-  async (req, res) => {
-    return res.status(400).json({ 
-      message: 'Documents are now only added to the blockchain after approval by staff'
-    });
-  }
-);
-
-// Review document on blockchain
-router.post(
-  '/documents/review',
-  auth,
-  checkRole('staff'),
-  async (req, res) => {
-    try {
-      const { applicationId, documentType, status, rejectionReason } = req.body;
-      
-      if (!applicationId || !documentType || !status) {
-        return res.status(400).json({ message: 'Application ID, document type, and status are required' });
-      }
-      
-      if (status === 'rejected' && !rejectionReason) {
-        return res.status(400).json({ message: 'Rejection reason is required for rejected documents' });
-      }
-      
-      const result = await blockchainService.reviewDocument(
-        applicationId,
-        documentType,
-        status,
-        rejectionReason || ''
-      );
-      
-      res.json({
-        message: `Document ${status} on blockchain`,
-        transaction: result
-      });
-    } catch (error) {
-      console.error('Blockchain document review error:', error);
-      res.status(500).json({ message: 'Error reviewing document on blockchain' });
-    }
-  }
-);
-
-// Update application status on blockchain
-router.post(
-  '/applications/status',
-  auth,
-  checkRole('staff'),
-  async (req, res) => {
-    try {
-      const { applicationId, status } = req.body;
-      
-      if (!applicationId || !status) {
-        return res.status(400).json({ message: 'Application ID and status are required' });
-      }
-      
-      const result = await blockchainService.updateApplicationStatus(applicationId, status);
-      
-      res.json({
-        message: 'Application status updated on blockchain',
-        transaction: result
-      });
-    } catch (error) {
-      console.error('Blockchain application status update error:', error);
-      res.status(500).json({ message: 'Error updating application status on blockchain' });
-    }
-  }
-);
-
-// Set deadline on blockchain
-router.post(
-  '/applications/deadline',
-  auth,
-  checkRole('admin'),
-  async (req, res) => {
-    try {
-      const { applicationId, deadline } = req.body;
-      
-      if (!applicationId || !deadline) {
-        return res.status(400).json({ message: 'Application ID and deadline are required' });
-      }
-      
-      const deadlineDate = new Date(deadline);
-      
-      if (isNaN(deadlineDate.getTime())) {
-        return res.status(400).json({ message: 'Invalid deadline date' });
-      }
-      
-      const result = await blockchainService.setDeadline(applicationId, deadlineDate);
-      
-      res.json({
-        message: 'Deadline set on blockchain',
-        transaction: result
-      });
-    } catch (error) {
-      console.error('Blockchain deadline setting error:', error);
-      res.status(500).json({ message: 'Error setting deadline on blockchain' });
-    }
-  }
-);
-
-// Check if within deadline
-// Check if within deadline
-router.get(
-  '/applications/within-deadline/:applicationId',
-  auth,
-  async (req, res) => {
-    try {
-      const { applicationId } = req.params;
-      
-      if (!applicationId) {
-        return res.status(400).json({ 
-          message: 'Application ID is required',
-          isWithinDeadline: true // Default to true if no ID provided
-        });
-      }
-      
-      try {
-        // Attempt to get deadline status from blockchain
-        const result = await blockchainService.isWithinDeadline(applicationId);
-        
-        res.json({
-          isWithinDeadline: result
-        });
-      } catch (blockchainError) {
-        console.error('Blockchain deadline check error:', blockchainError);
-        
-        // In case of any blockchain errors, default to allowing submissions
-        res.json({
-          isWithinDeadline: true,
-          error: 'Error checking blockchain deadline, defaulting to allow submissions',
-          details: blockchainError.message
-        });
-      }
-    } catch (error) {
-      console.error('General error in deadline check endpoint:', error);
-      
-      // Always default to allowing submissions in case of errors
-      res.json({ 
-        isWithinDeadline: true,
-        error: 'Error processing request, defaulting to allow submissions' 
-      });
-    }
-  }
-);
-// Get blockchain status for all students
+// Get blockchain status for students only
 router.get(
   '/students/status',
   auth,
@@ -317,141 +118,8 @@ router.get(
       });
     }
   }
-);  
-// Get student status from blockchain
-router.get(
-  '/students/:applicationId',
-  auth,
-  async (req, res) => {
-    try {
-      const { applicationId } = req.params;
-      
-      const result = await blockchainService.getStudentStatus(applicationId);
-      
-      res.json(result);
-    } catch (error) {
-      console.error('Blockchain student status check error:', error);
-      res.status(500).json({ message: 'Error getting student status from blockchain' });
-    }
-  }
 );
-
-// Verify document integrity against blockchain
-router.post(
-  '/documents/verify-integrity',
-  auth,
-  upload.single('file'),
-  async (req, res) => {
-    try {
-      const { applicationId, documentType } = req.body;
-      const file = req.file;
-      
-      if (!applicationId || !documentType || !file) {
-        return res.status(400).json({ message: 'Application ID, document type, and file are required' });
-      }
-      
-      const result = await blockchainService.verifyDocumentIntegrity(
-        applicationId,
-        documentType,
-        file.buffer
-      );
-      
-      res.json(result);
-    } catch (error) {
-      console.error('Blockchain document integrity check error:', error);
-      res.status(500).json({ message: 'Error verifying document integrity' });
-    }
-  }
-);
-
-// Get blockchain-verified documents for a student
-router.get(
-  '/student-documents/:applicationId',
-  auth,
-  async (req, res) => {
-    try {
-      const { applicationId } = req.params;
-      
-      // Check if this is the current user or an admin/staff
-      const isAuthorized = 
-        req.user.role === 'admin' || 
-        req.user.role === 'staff' || 
-        req.user.applicationId === applicationId;
-      
-      if (!isAuthorized) {
-        return res.status(403).json({ message: 'Unauthorized to access these documents' });
-      }
-      
-      // Find the user with this application ID
-      const student = await User.findOne({ applicationId });
-      
-      if (!student) {
-        return res.status(404).json({ message: 'Student not found' });
-      }
-      
-      // Get only the approved documents from the database
-      const approvedDocs = await Document.find({ 
-        owner: student._id,
-        status: 'approved',
-        blockchainTxHash: { $exists: true, $ne: null } // Only documents that have been added to blockchain
-      });
-      
-      // Format response
-      const documents = approvedDocs.map(doc => ({
-        id: doc._id,
-        title: doc.title,
-        documentType: doc.documentType,
-        status: doc.status,
-        documentHash: doc.documentHash,
-        blockchainTxHash: doc.blockchainTxHash,
-        blockchainBlockNumber: doc.blockchainBlockNumber,
-        blockchainTimestamp: doc.blockchainTimestamp,
-        reviewDate: doc.reviewDate
-      }));
-      
-      res.json({
-        applicationId,
-        documents
-      });
-    } catch (error) {
-      console.error('Error fetching student blockchain documents:', error);
-      res.status(500).json({ message: 'Error fetching blockchain documents' });
-    }
-  }
-);
-
-// Add isConnected method to blockchainService if it doesn't exist
-if (!blockchainService.isConnected) {
-  blockchainService.isConnected = async function() {
-    try {
-      if (this.provider) {
-        const network = await this.provider.getNetwork();
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Network connectivity check failed:', error.message);
-      return false;
-    }
-  };
-}
-//shows all the functions in the smart contract
-// router.get('/diagnose', async (req, res) => {
-//   try {
-//     const diagnosis = await blockchainService.diagnoseContract();
-//     res.json(diagnosis);
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// });
-
-// Add these routes to your blockchainRoutes.js file
-
-// Get blockchain status for all students
-// Add this to your blockchainRoutes.js file, replacing the existing students/status route
-
-
-// Manually register a student on blockchain
+// Register student on blockchain
 router.post(
   '/students/register/:applicationId',
   auth,
@@ -531,6 +199,404 @@ router.post(
     }
   }
 );
+router.get(
+  '/student-documents/:applicationId',
+  auth,
+  async (req, res) => {
+    try {
+      const { applicationId } = req.params;
+      
+      // Check if this is the current user or an admin/staff
+      const isAuthorized = 
+        req.user.role === 'admin' || 
+        req.user.role === 'staff' || 
+        req.user.applicationId === applicationId;
+      
+      if (!isAuthorized) {
+        return res.status(403).json({ message: 'Unauthorized to access these documents' });
+      }
+      
+      // Find the user with this application ID
+      const student = await User.findOne({ applicationId });
+      
+      if (!student) {
+        return res.status(404).json({ message: 'Student not found' });
+      }
+      
+      // Get only the approved documents from the database
+      const approvedDocs = await Document.find({ 
+        owner: student._id,
+        status: 'approved',
+        blockchainTxHash: { $exists: true, $ne: null } // Only documents that have been added to blockchain
+      });
+      
+      // Format response
+      const documents = approvedDocs.map(doc => ({
+        id: doc._id,
+        title: doc.title,
+        documentType: doc.documentType,
+        status: doc.status,
+        documentHash: doc.documentHash,
+        blockchainTxHash: doc.blockchainTxHash,
+        blockchainBlockNumber: doc.blockchainBlockNumber,
+        blockchainTimestamp: doc.blockchainTimestamp,
+        reviewDate: doc.reviewDate
+      }));
+      
+      res.json({
+        applicationId,
+        documents
+      });
+    } catch (error) {
+      console.error('Error fetching student blockchain documents:', error);
+      res.status(500).json({ message: 'Error fetching blockchain documents' });
+    }
+  }
+);
+// Manually register a staff member on blockchain
+router.post(
+  '/staff/register/:staffId',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      const { staffId } = req.params;
+      
+      // Find the staff member
+      const staff = await User.findOne({ staffId, role: 'staff' });
+      
+      if (!staff) {
+        return res.status(404).json({ message: 'Staff member not found' });
+      }
+      
+      // Check if already registered on blockchain
+      try {
+        const blockchainStatus = await blockchainService.getUserStatus(staffId, 'staff');
+        
+        if (blockchainStatus.exists) {
+          // Update our database to reflect this if not already marked as successful
+          if (staff.blockchainRegistrationStatus !== 'success') {
+            staff.blockchainRegistrationStatus = 'success';
+            staff.blockchainTxHash = 'manual_verification_existing';
+            await staff.save();
+          }
+          
+          return res.json({
+            success: true,
+            message: 'Staff member already registered on blockchain',
+            alreadyRegistered: true
+          });
+        }
+      } catch (checkError) {
+        console.error('Error checking blockchain status:', checkError);
+        // Continue with registration attempt
+      }
+      
+      // Create staff data object for blockchain
+      const staffData = {
+        fullName: staff.fullName,
+        email: staff.email,
+        staffId: staff.staffId,
+        role: 'staff',
+        registrationTimestamp: new Date().toISOString()
+      };
+      
+      // Register on blockchain
+      const blockchainResult = await blockchainService.registerStaff(staffId, staffData);
+      
+      // Log action on blockchain
+      await blockchainService.logAction(
+        `staff:${staffId}`,
+        "STAFF_ACCOUNT_CREATED_MANUAL",
+        `Staff account created manually by admin: ${staff.fullName} (${staff.email})`
+      );
+      
+      // Update staff record
+      staff.blockchainTxHash = blockchainResult.transactionHash;
+      staff.blockchainBlockNumber = blockchainResult.blockNumber;
+      staff.blockchainRegistrationStatus = 'success';
+      staff.blockchainRegistrationAttempts = (staff.blockchainRegistrationAttempts || 0) + 1;
+      staff.lastBlockchainRegistrationAttempt = Date.now();
+      await staff.save();
+      
+      res.json({
+        success: true,
+        message: 'Staff member registered on blockchain successfully',
+        transaction: blockchainResult
+      });
+    } catch (error) {
+      console.error('Error registering staff on blockchain:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error registering staff on blockchain',
+        error: error.message
+      });
+    }
+  }
+);
+
+// Manually register an admin on blockchain
+router.post(
+  '/admin/register/:adminId',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      const { adminId } = req.params;
+      
+      // Find the admin
+      const admin = await User.findOne({ adminId, role: 'admin' });
+      
+      if (!admin) {
+        return res.status(404).json({ message: 'Admin not found' });
+      }
+      
+      // Check if already registered on blockchain
+      try {
+        const blockchainStatus = await blockchainService.getUserStatus(adminId, 'admin');
+        
+        if (blockchainStatus.exists) {
+          // Update our database to reflect this if not already marked as successful
+          if (admin.blockchainRegistrationStatus !== 'success') {
+            admin.blockchainRegistrationStatus = 'success';
+            admin.blockchainTxHash = 'manual_verification_existing';
+            await admin.save();
+          }
+          
+          return res.json({
+            success: true,
+            message: 'Admin already registered on blockchain',
+            alreadyRegistered: true
+          });
+        }
+      } catch (checkError) {
+        console.error('Error checking blockchain status:', checkError);
+        // Continue with registration attempt
+      }
+      
+      // Create admin data object for blockchain
+      const adminData = {
+        fullName: admin.fullName,
+        email: admin.email,
+        adminId: admin.adminId,
+        role: 'admin',
+        registrationTimestamp: new Date().toISOString()
+      };
+      
+      // Register on blockchain
+      const blockchainResult = await blockchainService.registerAdmin(adminId, adminData);
+      
+      // Log action on blockchain
+      await blockchainService.logAction(
+        `admin:${adminId}`,
+        "ADMIN_ACCOUNT_CREATED_MANUAL",
+        `Admin account created manually by admin: ${admin.fullName} (${admin.email})`
+      );
+      
+      // Update admin record
+      admin.blockchainTxHash = blockchainResult.transactionHash;
+      admin.blockchainBlockNumber = blockchainResult.blockNumber;
+      admin.blockchainRegistrationStatus = 'success';
+      admin.blockchainRegistrationAttempts = (admin.blockchainRegistrationAttempts || 0) + 1;
+      admin.lastBlockchainRegistrationAttempt = Date.now();
+      await admin.save();
+      
+      res.json({
+        success: true,
+        message: 'Admin registered on blockchain successfully',
+        transaction: blockchainResult
+      });
+    } catch (error) {
+      console.error('Error registering admin on blockchain:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error registering admin on blockchain',
+        error: error.message
+      });
+    }
+  }
+);
+router.get(
+  '/applications/within-deadline/:applicationId',
+  auth,
+  async (req, res) => {
+    try {
+      const { applicationId } = req.params;
+      
+      if (!applicationId) {
+        return res.status(400).json({ 
+          message: 'Application ID is required',
+          isWithinDeadline: true // Default to true if no ID provided
+        });
+      }
+      
+      try {
+        // Attempt to get deadline status from blockchain
+        const result = await blockchainService.isWithinDeadline(applicationId);
+        
+        res.json({
+          isWithinDeadline: result
+        });
+      } catch (blockchainError) {
+        console.error('Blockchain deadline check error:', blockchainError);
+        
+        // In case of any blockchain errors, default to allowing submissions
+        res.json({
+          isWithinDeadline: true,
+          error: 'Error checking blockchain deadline, defaulting to allow submissions',
+          details: blockchainError.message
+        });
+      }
+    } catch (error) {
+      console.error('General error in deadline check endpoint:', error);
+      
+      // Always default to allowing submissions in case of errors
+      res.json({ 
+        isWithinDeadline: true,
+        error: 'Error processing request, defaulting to allow submissions' 
+      });
+    }
+  }
+);
+// Get blockchain status for all users (not just students)
+router.get(
+  '/users/status',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      console.log('Admin requesting blockchain user status');
+      
+      // Get all users from database
+      const users = await User.find({}).select('-password');
+      console.log(`Found ${users.length} users in database`);
+      
+      // Group users by role
+      const students = users.filter(user => user.role === 'student');
+      const staff = users.filter(user => user.role === 'staff');
+      const admins = users.filter(user => user.role === 'admin');
+      
+      console.log(`Users breakdown: ${students.length} students, ${staff.length} staff, ${admins.length} admins`);
+      
+      // Check blockchain connection
+      let blockchainConnected = false;
+      try {
+        blockchainConnected = await blockchainService.isConnected();
+      } catch (connError) {
+        console.error('Error checking blockchain connection:', connError);
+      }
+      
+      // Calculate stats based on database records
+      const stats = {
+        total: users.length,
+        registered: users.filter(u => u.blockchainRegistrationStatus === 'success').length,
+        pending: users.filter(u => u.blockchainRegistrationStatus === 'pending').length,
+        failed: users.filter(u => u.blockchainRegistrationStatus === 'failed').length,
+        // Breakdown by role
+        students: {
+          total: students.length,
+          registered: students.filter(s => s.blockchainRegistrationStatus === 'success').length,
+          pending: students.filter(s => s.blockchainRegistrationStatus === 'pending').length,
+          failed: students.filter(s => s.blockchainRegistrationStatus === 'failed').length
+        },
+        staff: {
+          total: staff.length,
+          registered: staff.filter(s => s.blockchainRegistrationStatus === 'success').length,
+          pending: staff.filter(s => s.blockchainRegistrationStatus === 'pending').length,
+          failed: staff.filter(s => s.blockchainRegistrationStatus === 'failed').length
+        },
+        admins: {
+          total: admins.length,
+          registered: admins.filter(a => a.blockchainRegistrationStatus === 'success').length,
+          pending: admins.filter(a => a.blockchainRegistrationStatus === 'pending').length,
+          failed: admins.filter(a => a.blockchainRegistrationStatus === 'failed').length
+        }
+      };
+      
+      // If blockchain is not connected, just return DB stats
+      if (!blockchainConnected) {
+        return res.json({
+          users,
+          stats,
+          blockchainConnected: false
+        });
+      }
+      
+      // Check blockchain for each user
+      const usersWithBlockchainData = await Promise.all(
+        users.map(async (user) => {
+          try {
+            let blockchainId;
+            let userRole = user.role;
+            
+            // Determine the blockchain ID based on user role
+            if (userRole === 'student') {
+              blockchainId = user.applicationId;
+            } else if (userRole === 'staff') {
+              blockchainId = user.staffId;
+            } else if (userRole === 'admin') {
+              blockchainId = user.adminId;
+            } else {
+              // Unknown role
+              return {
+                ...user.toObject(),
+                blockchainExists: false,
+                blockchainVerified: false,
+                blockchainError: 'Unknown user role'
+              };
+            }
+            
+            // Skip if no ID is available
+            if (!blockchainId) {
+              return {
+                ...user.toObject(),
+                blockchainExists: false,
+                blockchainVerified: false,
+                blockchainError: 'No ID available'
+              };
+            }
+            
+            // Get blockchain status
+            const blockchainStatus = await blockchainService.getUserStatus(blockchainId, userRole);
+            
+            // Convert mongoose document to plain object and add blockchain data
+            const userObj = user.toObject();
+            userObj.blockchainExists = blockchainStatus.exists;
+            userObj.blockchainVerified = blockchainStatus.verified;
+            
+            // If blockchain says registered but DB doesn't, update DB
+            if (blockchainStatus.exists && user.blockchainRegistrationStatus !== 'success') {
+              user.blockchainRegistrationStatus = 'success';
+              user.blockchainTxHash = 'verified_from_blockchain';
+              await user.save();
+              console.log(`Updated ${userRole} ${blockchainId} based on blockchain data`);
+            }
+            
+            return userObj;
+          } catch (error) {
+            console.error(`Error getting blockchain status for user ${user._id}:`, error);
+            const userObj = user.toObject();
+            userObj.blockchainError = error.message;
+            return userObj;
+          }
+        })
+      );
+      
+      // Return enhanced data
+      res.json({
+        users: usersWithBlockchainData,
+        stats,
+        blockchainConnected
+      });
+    } catch (error) {
+      console.error('Error fetching users blockchain status:', error);
+      res.status(500).json({ 
+        message: 'Error fetching blockchain status',
+        error: error.message
+      });
+    }
+  }
+);
 
 // Trigger the background job to register unregistered students
 router.post(
@@ -559,7 +625,101 @@ router.post(
       });
     }
   }
-)
+);
+
+// Trigger the combined job to register all unregistered users (students, staff, admins)
+router.post(
+  '/jobs/register-all-users',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      const { scheduler } = require('../jobs/scheduler');
+      const { registerAllUnregisteredUsers } = require('../jobs/blockchainRegistrationJob');
+      
+      // Run the combined job immediately
+      const result = await scheduler.runJobNow('registerAllUnregisteredUsers', registerAllUnregisteredUsers);
+      
+      res.json({
+        success: true,
+        students: result.students,
+        staff: result.staff,
+        admins: result.admins,
+        totals: result.total,
+        message: `Job completed: ${result.total.success} users registered successfully, ${result.total.failure} failures`
+      });
+    } catch (error) {
+      console.error('Error triggering all users registration job:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error triggering registration job',
+        error: error.message
+      });
+    }
+  }
+);
+
+// Trigger job to register unregistered staff only
+router.post(
+  '/jobs/register-unregistered-staff',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      const { scheduler } = require('../jobs/scheduler');
+      const { registerUnregisteredStaff } = require('../jobs/blockchainRegistrationJob');
+      
+      // Run the staff registration job immediately
+      const result = await scheduler.runJobNow('registerUnregisteredStaff', registerUnregisteredStaff);
+      
+      res.json({
+        success: true,
+        registered: result.success,
+        failed: result.failure,
+        message: `Job completed: ${result.success} staff members registered, ${result.failure} failures`
+      });
+    } catch (error) {
+      console.error('Error triggering staff registration job:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error triggering staff registration job',
+        error: error.message
+      });
+    }
+  }
+);
+
+// Trigger job to register unregistered admins only
+router.post(
+  '/jobs/register-unregistered-admins',
+  auth,
+  checkRole('admin'),
+  async (req, res) => {
+    try {
+      const { scheduler } = require('../jobs/scheduler');
+      const { registerUnregisteredAdmins } = require('../jobs/blockchainRegistrationJob');
+      
+      // Run the admin registration job immediately
+      const result = await scheduler.runJobNow('registerUnregisteredAdmins', registerUnregisteredAdmins);
+      
+      res.json({
+        success: true,
+        registered: result.success,
+        failed: result.failure,
+        message: `Job completed: ${result.success} admins registered, ${result.failure} failures`
+      });
+    } catch (error) {
+      console.error('Error triggering admin registration job:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error triggering admin registration job',
+        error: error.message
+      });
+    }
+  }
+);
+
+// Diagnose blockchain connection and contract
 router.get('/diagnose', async (req, res) => {
   try {
     const diagnosis = await blockchainService.diagnoseContract();
@@ -585,5 +745,8 @@ router.get('/diagnose', async (req, res) => {
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
+});
+router.get('/test', (req, res) => {
+  res.json({ message: 'Blockchain routes are working' });
 });
 module.exports = router;

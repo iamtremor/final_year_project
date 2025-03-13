@@ -1,6 +1,11 @@
 // backend/jobs/scheduler.js
 
-const { registerUnregisteredStudents } = require('./blockchainRegistrationJob');
+const { 
+  registerUnregisteredStudents,
+  registerUnregisteredStaff, 
+  registerUnregisteredAdmins,
+  registerAllUnregisteredUsers 
+} = require('./blockchainRegistrationJob');
 
 /**
  * Simple in-memory job scheduler
@@ -100,11 +105,17 @@ const scheduler = new JobScheduler();
 
 // Initialize the scheduled jobs
 function initializeJobs() {
-  // Schedule the registerUnregisteredStudents job to run every hour
-  // Adjust the interval as needed (value is in milliseconds)
+  // Schedule the student registration job to run every hour
   scheduler.scheduleJob('registerUnregisteredStudents', registerUnregisteredStudents, 60 * 60 * 1000);
   
-  // Add more scheduled jobs here if needed
+  // Schedule the staff registration job to run every hour
+  scheduler.scheduleJob('registerUnregisteredStaff', registerUnregisteredStaff, 60 * 60 * 1000);
+  
+  // Schedule the admin registration job to run every hour
+  scheduler.scheduleJob('registerUnregisteredAdmins', registerUnregisteredAdmins, 60 * 60 * 1000);
+  
+  // Optional: Schedule a combined job to run all registrations
+  // scheduler.scheduleJob('registerAllUnregisteredUsers', registerAllUnregisteredUsers, 2 * 60 * 60 * 1000);
 }
 
 module.exports = {

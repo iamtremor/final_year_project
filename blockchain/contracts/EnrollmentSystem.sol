@@ -4,7 +4,16 @@ pragma solidity ^0.8.0;
 contract EnrollmentSystem {
     address public admin;
     
-    // Student verification status
+    // Generic user struct - can be used for any role
+    struct User {
+        bool exists;
+        bool verified;
+        string dataHash; // Hash of user's personal data
+        uint256 registrationTime;
+        string role; // "student", "staff", or "admin"
+    }
+    
+    // Student verification status (kept for backward compatibility)
     struct Student {
         bool exists;
         bool verified;
@@ -43,13 +52,15 @@ contract EnrollmentSystem {
     }
     
     // Mappings
-    mapping(string => Student) public students; // applicationId -> Student
+    mapping(string => Student) public students; // applicationId -> Student (kept for backward compatibility)
+    mapping(string => User) public users; // userId -> User (new generic mapping for all user types)
     mapping(string => mapping(string => Document)) public documents; // applicationId -> documentType -> Document
     mapping(string => Application) public applications; // applicationId -> Application
     mapping(string => AuditLog[]) public auditLogs; // applicationId -> AuditLog[]
     
     // Events
     event StudentRegistered(string applicationId, string dataHash, uint256 timestamp);
+    event UserRegistered(string userId, string role, string dataHash, uint256 timestamp);
     event DocumentUploaded(string applicationId, string documentType, string documentHash, uint256 timestamp);
     event DocumentReviewed(string applicationId, string documentType, string status, address reviewer, uint256 timestamp);
     event ApplicationStatusChanged(string applicationId, string status, uint256 timestamp);
@@ -73,15 +84,25 @@ contract EnrollmentSystem {
         _;
     }
     
-    // Function to register a new student
+    // Function to register a new student (kept for backward compatibility)
     function registerStudent(string memory applicationId, string memory dataHash) public onlyAdmin {
         require(!students[applicationId].exists, "Student already exists");
         
+        // Register in the students mapping (for backward compatibility)
         students[applicationId] = Student({
             exists: true,
             verified: false,
             dataHash: dataHash,
             registrationTime: block.timestamp
+        });
+        
+        // Also register in the generic users mapping
+        users[applicationId] = User({
+            exists: true,
+            verified: false,
+            dataHash: dataHash,
+            registrationTime: block.timestamp,
+            role: "student"
         });
         
         // Initialize application
@@ -94,16 +115,58 @@ contract EnrollmentSystem {
         recordLog(applicationId, msg.sender, "STUDENT_REGISTERED", "Student registration");
         
         emit StudentRegistered(applicationId, dataHash, block.timestamp);
+        emit UserRegistered(applicationId, "student", dataHash, block.timestamp);
     }
     
-    // Function to verify a student
+    // Function to register a new user (staff or admin)
+    function registerUser(string memory userId, string memory role, string memory dataHash) public onlyAdmin {
+        require(!users[userId].exists, "User already exists");
+        
+        // Register in the generic users mapping
+        users[userId] = User({
+            exists: true,
+            verified: false,
+            dataHash: dataHash,
+            registrationTime: block.timestamp,
+            role: role
+        });
+        
+        // Record audit log
+        recordLog(userId, msg.sender, "USER_REGISTERED", string(abi.encodePacked(role, " registration")));
+        
+        emit UserRegistered(userId, role, dataHash, block.timestamp);
+    }
+    
+    // Function to verify a student (kept for backward compatibility)
     function verifyStudent(string memory applicationId) public onlyStaff {
         require(students[applicationId].exists, "Student does not exist");
         require(!students[applicationId].verified, "Student already verified");
         
         students[applicationId].verified = true;
         
+        // Also update in generic users mapping
+        if (users[applicationId].exists) {
+            users[applicationId].verified = true;
+        }
+        
         recordLog(applicationId, msg.sender, "STUDENT_VERIFIED", "Student verification");
+    }
+    
+    // Function to verify any user
+    function verifyUser(string memory userId) public onlyAdmin {
+        require(users[userId].exists, "User does not exist");
+        require(!users[userId].verified, "User already verified");
+        
+        users[userId].verified = true;
+        
+        // If this is a student, also update the students mapping
+        if (keccak256(abi.encodePacked(users[userId].role)) == keccak256(abi.encodePacked("student"))) {
+            if (students[userId].exists) {
+                students[userId].verified = true;
+            }
+        }
+        
+        recordLog(userId, msg.sender, "USER_VERIFIED", string(abi.encodePacked(users[userId].role, " verification")));
     }
     
     // Function to add a document hash
@@ -206,7 +269,7 @@ contract EnrollmentSystem {
         return block.timestamp <= deadline;
     }
     
-    // Function to record audit log
+    // Function to record audit log (internal)
     function recordLog(string memory applicationId, address actor, string memory action, string memory details) internal {
         AuditLog memory log = AuditLog({
             actor: actor,
@@ -219,11 +282,12 @@ contract EnrollmentSystem {
         
         emit LogRecorded(applicationId, actor, action, block.timestamp);
     }
+
     // Function to record external audit log
-// Function to record external audit log
-function recordAuditLog(string memory applicationId, string memory action, string memory details) public {
-    recordLog(applicationId, msg.sender, action, details);
-}
+    function recordAuditLog(string memory applicationId, string memory action, string memory details) public {
+        recordLog(applicationId, msg.sender, action, details);
+    }
+    
     // Helper function to convert uint to string
     function uint2str(uint256 _i) internal pure returns (string memory) {
         if (_i == 0) {

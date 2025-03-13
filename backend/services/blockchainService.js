@@ -142,7 +142,198 @@ async logAction(applicationId, action, details) {
       throw error;
     }
   }
+// Extending the existing blockchainService.js with staff and admin registration
 
+// Add these functions to your existing blockchainService.js file
+
+/**
+ * Register a staff member on the blockchain
+ * @param {string} staffId - Staff ID
+ * @param {Object} staffData - Staff member's information
+ */
+async registerStaff(staffId, staffData) {
+  try {
+    console.log(`Registering staff ${staffId} on blockchain...`);
+    
+    // Check if user already exists on blockchain using the same structure as students
+    try {
+      const userStatus = await this.getUserStatus(staffId, 'staff');
+      if (userStatus.exists) {
+        console.log(`Staff ${staffId} already exists on blockchain`);
+        return {
+          alreadyRegistered: true,
+          staffId
+        };
+      }
+    } catch (checkError) {
+      console.error('Error checking if staff exists:', checkError);
+      // Continue with registration attempt
+    }
+    
+    // Create hash of staff data
+    const dataHash = this.createHash(staffData);
+    
+    // Register on blockchain - using same function but with a different prefix
+    // or identifier to distinguish from students
+    const tx = await this.contract.registerUser(
+      `staff:${staffId}`, 
+      dataHash, 
+      {
+        gasLimit: 500000
+      }
+    );
+    
+    console.log(`Staff registration transaction sent: ${tx.hash}`);
+    
+    const receipt = await tx.wait();
+    console.log(`Staff registration transaction confirmed: ${receipt.transactionHash}`);
+    
+    return {
+      transactionHash: receipt.transactionHash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString()
+    };
+  } catch (error) {
+    console.error('Error registering staff on blockchain:', error);
+    throw error;
+  }
+}
+
+/**
+ * Register an admin on the blockchain
+ * @param {string} adminId - Admin ID
+ * @param {Object} adminData - Admin's information
+ */
+async registerAdmin(adminId, adminData) {
+  try {
+    console.log(`Registering admin ${adminId} on blockchain...`);
+    
+    // Check if user already exists on blockchain
+    try {
+      const userStatus = await this.getUserStatus(adminId, 'admin');
+      if (userStatus.exists) {
+        console.log(`Admin ${adminId} already exists on blockchain`);
+        return {
+          alreadyRegistered: true,
+          adminId
+        };
+      }
+    } catch (checkError) {
+      console.error('Error checking if admin exists:', checkError);
+      // Continue with registration attempt
+    }
+    
+    // Create hash of admin data
+    const dataHash = this.createHash(adminData);
+    
+    // Register on blockchain - using same function but with a different prefix
+    const tx = await this.contract.registerUser(
+      `admin:${adminId}`, 
+      dataHash, 
+      {
+        gasLimit: 500000
+      }
+    );
+    
+    console.log(`Admin registration transaction sent: ${tx.hash}`);
+    
+    const receipt = await tx.wait();
+    console.log(`Admin registration transaction confirmed: ${receipt.transactionHash}`);
+    
+    return {
+      transactionHash: receipt.transactionHash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString()
+    };
+  } catch (error) {
+    console.error('Error registering admin on blockchain:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get user status from blockchain
+ * @param {string} userId - User ID (staffId or adminId)
+ * @param {string} role - User role ('staff' or 'admin')
+ * @returns {Object} User status details
+ */
+/**
+ * Get user status from blockchain
+ * @param {string} userId - User ID (staffId, adminId, or applicationId)
+ * @param {string} role - User role ('student', 'staff', or 'admin')
+ * @returns {Object} User status details
+ */
+async getUserStatus(userId, role) {
+  try {
+    console.log(`Getting ${role} status for ${userId}...`);
+    
+    if (!this.contract) {
+      console.error('Contract not initialized');
+      return {
+        exists: false,
+        verified: false,
+        dataHash: null,
+        registrationTime: null,
+        error: 'Blockchain contract not initialized'
+      };
+    }
+    
+    // Determine the correct key
+    let key;
+    let userResult;
+    
+    // Special handling for students to maintain backward compatibility
+    if (role === 'student') {
+      // Try both students and users mappings
+      try {
+        userResult = await this.contract.students(userId);
+        
+        // If students mapping doesn't work, fall back to users mapping
+        if (!userResult.exists) {
+          userResult = await this.contract.users(userId);
+        }
+      } catch (err) {
+        // If students mapping fails, try users mapping
+        userResult = await this.contract.users(userId);
+      }
+    } else {
+      // For staff and admin, use the prefixed key in users mapping
+      key = `${role}:${userId}`;
+      userResult = await this.contract.users(key);
+    }
+    
+    // If no result found
+    if (!userResult || !userResult.exists) {
+      return {
+        exists: false,
+        verified: false,
+        dataHash: null,
+        registrationTime: null
+      };
+    }
+    
+    return {
+      exists: userResult.exists,
+      verified: userResult.verified,
+      dataHash: userResult.dataHash,
+      registrationTime: userResult.registrationTime ? 
+        new Date(userResult.registrationTime.toNumber() * 1000) : null,
+      role: userResult.role || role
+    };
+  } catch (error) {
+    console.error(`Error getting ${role} status from blockchain:`, error);
+    return {
+      exists: false,
+      verified: false,
+      dataHash: null,
+      registrationTime: null,
+      error: error.message
+    };
+  }
+}
+// Note: This implementation assumes your smart contract has a generic "registerUser" function
+// that can be used for different types of users. If not, you may need to extend the smart contract
+// or use the existing registerStudent function with a different naming convention.
   /**
    * Verify a student's identity on the blockchain
    * @param {string} applicationId - Student's application ID
@@ -525,26 +716,26 @@ async isWithinDeadline(applicationId) {
       };
     }
   }
-  // async diagnoseContract() {
-  //   try {
-  //     console.log("Contract address:", this.contract.address);
-  //     console.log("Contract interface functions:", Object.keys(this.contract.interface.functions));
-  //     console.log("Contract methods:", Object.keys(this.contract).filter(k => typeof this.contract[k] === 'function'));
+  async diagnoseContract() {
+    try {
+      console.log("Contract address:", this.contract.address);
+      console.log("Contract interface functions:", Object.keys(this.contract.interface.functions));
+      console.log("Contract methods:", Object.keys(this.contract).filter(k => typeof this.contract[k] === 'function'));
       
-  //     // Try calling a known function to test contract connectivity
-  //     const admin = await this.contract.admin();
-  //     console.log("Contract admin address:", admin);
+      // Try calling a known function to test contract connectivity
+      const admin = await this.contract.admin();
+      console.log("Contract admin address:", admin);
       
-  //     return {
-  //       address: this.contract.address,
-  //       functions: Object.keys(this.contract.interface.functions),
-  //       methods: Object.keys(this.contract).filter(k => typeof this.contract[k] === 'function')
-  //     };
-  //   } catch (error) {
-  //     console.error("Contract diagnosis error:", error);
-  //     throw error;
-  //   }
-  // }
+      return {
+        address: this.contract.address,
+        functions: Object.keys(this.contract.interface.functions),
+        methods: Object.keys(this.contract).filter(k => typeof this.contract[k] === 'function')
+      };
+    } catch (error) {
+      console.error("Contract diagnosis error:", error);
+      throw error;
+    }
+  }
   /**
    * Verify document integrity by comparing hashes
    * @param {string} applicationId - Student's application ID
@@ -621,35 +812,35 @@ async isWithinDeadline(applicationId) {
   }
   
   
-  async diagnoseContract() {
-    try {
-      if (!this.contract) {
-        return { error: "Contract not initialized" };
-      }
+  // async diagnoseContract() {
+  //   try {
+  //     if (!this.contract) {
+  //       return { error: "Contract not initialized" };
+  //     }
       
-      console.log("Contract address:", this.contract.address);
+  //     console.log("Contract address:", this.contract.address);
       
-      // Try to get interface functions
-      const functions = Object.keys(this.contract.interface.functions);
-      console.log("Contract has", functions.length, "functions");
+  //     // Try to get interface functions
+  //     const functions = Object.keys(this.contract.interface.functions);
+  //     console.log("Contract has", functions.length, "functions");
       
-      // Try calling a simple view function
-      try {
-        const admin = await this.contract.admin();
-        console.log("Contract admin address:", admin);
-      } catch (callError) {
-        console.error("Error calling contract.admin():", callError);
-      }
+  //     // Try calling a simple view function
+  //     try {
+  //       const admin = await this.contract.admin();
+  //       console.log("Contract admin address:", admin);
+  //     } catch (callError) {
+  //       console.error("Error calling contract.admin():", callError);
+  //     }
       
-      return {
-        address: this.contract.address,
-        functions: functions
-      };
-    } catch (error) {
-      console.error("Contract diagnosis error:", error);
-      throw error;
-    }
-  }
+  //     return {
+  //       address: this.contract.address,
+  //       functions: functions
+  //     };
+  //   } catch (error) {
+  //     console.error("Contract diagnosis error:", error);
+  //     throw error;
+  //   }
+  // }
 }
 
 module.exports = new BlockchainService();

@@ -414,7 +414,7 @@ const AdminDashboard = () => {
               </div>
               <div className="mt-4">
                 <h3 className="text-sm font-medium text-gray-500">Total Users</h3>
-                <p className="text-2xl font-semibold mt-1 text-gray-900">{blockchainStats.total}</p>
+                <p className="text-2xl font-semibold mt-1 text-gray-900">{Math.round((blockchainStats.registered))}</p>
               </div>
               <div className="mt-4 pt-4 border-t border-gray-100">
                 <Link to="/admin/manage-user-user-list" className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
@@ -506,7 +506,7 @@ const AdminDashboard = () => {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <h2 className="text-lg font-bold text-gray-900 flex items-center">
                 <FaEthereum className="mr-2 text-blue-600" />
-                Blockchain Registration Status
+                Blockchain Student Registration Status
               </h2>
               
               <div className="flex items-center mt-3 md:mt-0">

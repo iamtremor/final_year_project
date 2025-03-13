@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const blockchainService = require('../services/blockchainService');
 
 // @desc    Get current user profile
 // @route   GET /api/users/profile
@@ -59,6 +60,43 @@ const getUsersByRole = async (req, res) => {
   }
 };
 
+// @desc    Get all users with blockchain status
+// @route   GET /api/users/with-blockchain
+// @access  Private/Admin
+const getUsersWithBlockchainStatus = async (req, res) => {
+  try {
+    // Get all users from database
+    const users = await User.find({}).select('-password');
+    
+    // For each student, check blockchain status
+    const enhancedUsers = await Promise.all(users.map(async (user) => {
+      // Only check blockchain status for students
+      if (user.role === 'student' && user.applicationId) {
+        try {
+          const blockchainStatus = await blockchainService.getStudentStatus(user.applicationId);
+          
+          // Add blockchain status to user object
+          return {
+            ...user.toObject(),
+            blockchainExists: blockchainStatus.exists,
+            blockchainVerified: blockchainStatus.verified,
+            blockchainRegistrationTime: blockchainStatus.registrationTime
+          };
+        } catch (error) {
+          console.error(`Error getting blockchain status for ${user.applicationId}:`, error);
+          return user.toObject();
+        }
+      }
+      return user.toObject();
+    }));
+    
+    res.json(enhancedUsers);
+  } catch (error) {
+    console.error('Get users with blockchain status error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // @desc    Update user profile
 // @route   PUT /api/users/profile
 // @access  Private
@@ -93,9 +131,31 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
+// @desc    Delete a user
+// @route   DELETE /api/users/:id
+// @access  Private/Admin
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    await user.remove();
+    
+    res.json({ message: 'User removed' });
+  } catch (error) {
+    console.error('Delete user error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getUserProfile,
   getUsers,
   getUsersByRole,
-  updateUserProfile
+  getUsersWithBlockchainStatus,
+  updateUserProfile,
+  deleteUser
 };
