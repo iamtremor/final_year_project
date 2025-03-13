@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
-import { FiUpload, FiX, FiFile, FiPaperclip, FiInfo, FiCheck, FiAlertTriangle, FiPlus, FiTrash2, FiClock } from "react-icons/fi";
+import React, { useState, useEffect } from "react";
+import { FiUpload, FiX, FiFile, FiPaperclip, FiInfo, FiCheck, FiAlertTriangle, FiPlus, FiTrash2, FiClock, FiList } from "react-icons/fi";
 import { AiOutlineCloudUpload } from "react-icons/ai";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { useAuth } from "../../../../context/AuthContext";
 import Draganddrop from "./Draganddrop";
+import DocumentManagement from "./DocumentManagement"; // Import the new component
 
 const UploadDocuments = () => {
   const { user } = useAuth();
@@ -22,7 +23,7 @@ const UploadDocuments = () => {
       progress: 0
     }
   ]);
-  const [activeTab, setActiveTab] = useState('upload'); // upload, history
+  const [activeTab, setActiveTab] = useState('upload'); // upload, history, manage
   
   useEffect(() => {
     // Check if submission is within deadline when component mounts
@@ -272,7 +273,17 @@ const UploadDocuments = () => {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Upload Documents
+            <FiUpload className="inline mr-1" /> Upload Documents
+          </button>
+          <button 
+            onClick={() => setActiveTab('manage')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+              activeTab === 'manage' 
+                ? 'bg-white text-[#1E3A8A] shadow-sm' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <FiList className="inline mr-1" /> Manage Documents
           </button>
           <button 
             onClick={() => setActiveTab('history')}
@@ -282,7 +293,7 @@ const UploadDocuments = () => {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Upload History
+            <FiClock className="inline mr-1" /> History
           </button>
         </div>
       </div>
@@ -592,31 +603,41 @@ const UploadDocuments = () => {
         </div>
       )}
       
-      {activeTab === 'history' && (
+      {activeTab === 'manage' && (
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="text-center py-12">
-            <div className="mx-auto h-12 w-12 text-gray-400">
-              <FiClock className="h-12 w-12" />
-            </div>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No upload history</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Your document upload history will appear here
-            </p>
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => setActiveTab('upload')}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#1E3A8A] hover:bg-[#152a63] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E3A8A]"
-              >
-                <FiUpload className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-                Upload Documents
-              </button>
-            </div>
+          <h3 className="text-lg font-medium text-[#1E3A8A] mb-4">Manage Your Documents</h3>
+          <p className="text-gray-600 mb-6">
+            View, track, and delete your submitted documents that haven't been approved yet.
+          </p>
+          
+          <DocumentManagement />
+        </div>
+      )}
+      
+      {activeTab === 'history' && (
+        <div className="bg-white rounded-xl shadow-sm p-6 text-center">
+          <div className="mx-auto h-12 w-12 text-gray-400">
+            <FiClock className="h-12 w-12" />
+          </div>
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Upload History</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Your document upload history will appear here
+          </p>
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={() => setActiveTab('upload')}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#1E3A8A] hover:bg-[#152a63] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E3A8A]"
+            >
+              <FiUpload className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+              Upload Documents
+            </button>
           </div>
         </div>
       )}
     </div>
   );
+  
 };
 
 export default UploadDocuments;

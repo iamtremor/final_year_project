@@ -27,7 +27,7 @@ import Upload from "./components/Students/Dashboard/Upload/Upload";
 import Track from "./components/Students/Dashboard/Track/Track";
 import BlockchainTest from "./components/testcomponent";
 import BlockchainVerified from "./components/Students/Dashboard/Verified/BlockChainVerified";
-
+import DocumentManagement from "./components/Students/Dashboard/Upload/DocumentManagement";
 // Staff components
 import StaffDashboard from "./components/Staff/Dashboard/Dashboard";
 import StaffApproved from "./components/Staff/StaffApproved";
@@ -91,6 +91,7 @@ function App() {
               <Route path="my-documents" element={<Documents />} />
               <Route path="notifications" element={<Notification />} />
               <Route path="pending" element={<Pending />} />
+              <Route path="manage-documents" element={<DocumentManagement />} />
               <Route path="profile" element={<Profile />} />
               <Route path="track" element={<Track />} />
               <Route path="upload" element={<Upload />} />

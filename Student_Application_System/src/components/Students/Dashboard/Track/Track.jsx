@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
 import { 
+  FiFileText, 
   FiCheckCircle, 
   FiAlertTriangle, 
   FiClock, 
-  FiEye, 
-  FiBarChart2,
-  FiXCircle,
-  FiFileText
+  FiEye 
 } from "react-icons/fi";
 import axios from "axios";
 import { format } from "date-fns";
@@ -32,12 +30,11 @@ const TrackStatus = () => {
         const token = localStorage.getItem('token');
         
         if (!token) {
-          toast.error("Authentication token not found");
+          toast.error("Authentication token not found. Please log in again.");
           setLoading(false);
           return;
         }
         
-        // Fetch all documents
         const response = await axios.get('/api/documents/student', {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -47,7 +44,6 @@ const TrackStatus = () => {
         const allDocs = response.data;
         setDocuments(allDocs);
         
-        // Calculate statistics
         const approved = allDocs.filter(doc => doc.status === 'approved').length;
         const pending = allDocs.filter(doc => doc.status === 'pending').length;
         const rejected = allDocs.filter(doc => doc.status === 'rejected').length;
@@ -69,7 +65,7 @@ const TrackStatus = () => {
     fetchDocuments();
   }, []);
 
-  // Format date
+  // Format date 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     try {
@@ -79,36 +75,22 @@ const TrackStatus = () => {
     }
   };
 
-  // Calculate progress percentage
-  const calculateProgress = (status) => {
-    switch(status) {
-      case 'approved':
-        return 100;
-      case 'rejected':
-        return 0;
-      case 'pending':
-        return 50;
-      default:
-        return 0;
-    }
-  };
-
-  // Handle view document details
+  // Handle view document
   const handleViewDocument = (document) => {
     setSelectedDocument(document);
     setViewModalOpen(true);
   };
 
-  // Document View Modal Component
+  // View Document Modal
   const DocumentViewModal = ({ isOpen, onClose, document }) => {
     if (!isOpen || !document) return null;
     
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-          <div className="p-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-bold text-[#0D0637]">
+        <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-[#1E3A8A]">
                 {document.title || "Document"}
               </h3>
               <button 
@@ -119,55 +101,63 @@ const TrackStatus = () => {
               </button>
             </div>
             
-            <div className="mb-3">
-              <div className="flex justify-between mb-2">
-                <span className="text-gray-600 text-sm">Status:</span>
-                <span className={`font-medium ${
-                  document.status === 'approved' ? 'text-green-600' : 
-                  document.status === 'rejected' ? 'text-red-600' : 
-                  'text-yellow-600'
-                }`}>
-                  {document.status === 'approved' ? 'Approved' : 
-                   document.status === 'rejected' ? 'Rejected' : 'Pending'}
-                </span>
-              </div>
-              
-              <div className="flex justify-between mb-2">
-                <span className="text-gray-600 text-sm">Document Type:</span>
-                <span className="font-medium">{document.documentType}</span>
-              </div>
-              
-              <div className="flex justify-between mb-2">
-                <span className="text-gray-600 text-sm">Submitted On:</span>
-                <span className="font-medium">{formatDate(document.createdAt)}</span>
-              </div>
-              
-              {document.status !== 'pending' && (
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600 text-sm">Reviewed On:</span>
-                  <span className="font-medium">{formatDate(document.reviewDate)}</span>
+            <div className="mb-4 p-4 bg-gray-50 rounded-md">
+              <h4 className="font-medium text-gray-700 mb-2">Document Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Document Type</p>
+                  <p className="font-medium">{document.documentType}</p>
                 </div>
-              )}
+                <div>
+                  <p className="text-sm text-gray-500">Status</p>
+                  <p className={`font-medium ${
+                    document.status === 'approved' ? 'text-green-600' : 
+                    document.status === 'rejected' ? 'text-red-600' : 
+                    'text-yellow-600'
+                  }`}>
+                    {document.status === 'approved' ? 'Approved' : 
+                     document.status === 'rejected' ? 'Rejected' : 
+                     'Pending'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Submission Date</p>
+                  <p className="font-medium">{formatDate(document.createdAt)}</p>
+                </div>
+                {document.status !== 'pending' && (
+                  <div>
+                    <p className="text-sm text-gray-500">Review Date</p>
+                    <p className="font-medium">{formatDate(document.reviewDate)}</p>
+                  </div>
+                )}
+              </div>
               
               {document.feedback && (
-                <div className="mt-3">
-                  <span className="text-gray-600 text-sm">Feedback:</span>
-                  <p className="mt-1 text-sm border-l-2 border-gray-300 pl-2">{document.feedback}</p>
+                <div className="mt-4">
+                  <p className="text-sm text-gray-500">Feedback</p>
+                  <p className="border-l-4 border-gray-300 pl-3 py-2 text-gray-700">
+                    {document.feedback}
+                  </p>
                 </div>
               )}
             </div>
             
             {document.blockchainTxHash && (
-              <div className="mb-3 mt-4 p-2 bg-blue-50 rounded text-sm">
-                <p className="text-blue-800 font-medium">Blockchain Verified</p>
-                <p className="text-xs text-blue-600 mt-1 break-all">{document.blockchainTxHash}</p>
+              <div className="mb-4 p-4 bg-gray-50 rounded-md">
+                <h4 className="font-medium text-gray-700 mb-2">Blockchain Verification</h4>
+                <div>
+                  <p className="text-sm text-gray-500">Transaction Hash</p>
+                  <p className="font-mono text-sm overflow-x-auto break-all">
+                    {document.blockchainTxHash}
+                  </p>
+                </div>
               </div>
             )}
             
-            <div className="mt-4 flex justify-end">
+            <div className="flex justify-end space-x-3">
               <button 
                 onClick={onClose}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 text-sm"
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
               >
                 Close
               </button>
@@ -185,14 +175,14 @@ const TrackStatus = () => {
       selector: row => row.title || "Untitled Document",
       sortable: true,
       cell: row => (
-        <div className="py-2">
+        <div>
           <p className="font-medium">{row.title || "Untitled Document"}</p>
           <p className="text-xs text-gray-500">{row.documentType}</p>
         </div>
       )
     },
     {
-      name: "Date",
+      name: "Submitted On",
       selector: row => formatDate(row.createdAt),
       sortable: true,
     },
@@ -201,41 +191,40 @@ const TrackStatus = () => {
       selector: row => row.status,
       sortable: true,
       cell: row => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          row.status === 'approved' ? 'bg-green-100 text-green-800' : 
-          row.status === 'rejected' ? 'bg-red-100 text-red-800' : 
-          'bg-yellow-100 text-yellow-800'
-        }`}>
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium 
+          ${row.status === 'approved' ? 'bg-green-100 text-green-800' : 
+            row.status === 'rejected' ? 'bg-red-100 text-red-800' : 
+            'bg-yellow-100 text-yellow-800'}`}
+        >
           {row.status === 'approved' ? 'Approved' : 
-           row.status === 'rejected' ? 'Rejected' : 'Pending'}
+           row.status === 'rejected' ? 'Rejected' : 
+           'Pending'}
         </span>
       ),
     },
     {
-      name: "Progress",
+      name: "Blockchain Verified",
       cell: row => (
-        <div className="w-full">
-          <div className="w-24 bg-gray-200 rounded-full h-2.5">
-            <div 
-              className={`h-2.5 rounded-full ${
-                row.status === 'approved' ? 'bg-green-600' : 
-                row.status === 'rejected' ? 'bg-red-600' : 
-                'bg-yellow-600'
-              }`}
-              style={{ width: `${calculateProgress(row.status)}%` }}
-            ></div>
-          </div>
+        <div>
+          {row.blockchainTxHash ? (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <FiCheckCircle className="mr-1" /> Verified
+            </span>
+          ) : (
+            <span className="text-gray-400">Not verified</span>
+          )}
         </div>
-      )
+      ),
+      sortable: true,
     },
     {
       name: "Actions",
       cell: row => (
         <button
           onClick={() => handleViewDocument(row)}
-          className="text-blue-600 hover:text-blue-800 text-sm"
+          className="flex items-center text-blue-600 hover:text-blue-800"
         >
-          View
+          <FiEye className="mr-1" /> View
         </button>
       ),
     },
@@ -245,42 +234,25 @@ const TrackStatus = () => {
     <div className="p-6">
       <Toaster position="top-right" />
       
-      <div className="text-2xl font-bold text-[#0D0637] mb-4">
-        Track Document Status
+      <div className="text-2xl font-bold text-[#1E3A8A] flex items-center mb-6">
+        <FiFileText className="mr-2" />
+        <h2>Track Document Status</h2>
       </div>
       
-      {/* Status cards in a single row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-3 rounded-md shadow-sm border-t-2 border-[#0D0637]">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 text-xs">Total</span>
-            <span className="bg-gray-100 px-2 py-1 rounded-full text-xs">{stats.total}</span>
+      {/* Stats Card - Compact design */}
+      <div className="flex justify-between items-center bg-white px-4 py-3 rounded-md shadow-sm mb-6 border-l-4 border-[#1E3A8A]">
+        <div className="flex items-center">
+          <div className="bg-gray-100 p-2 rounded-full mr-3">
+            <FiFileText className="text-[#1E3A8A] text-lg" />
           </div>
-          <p className="text-lg font-semibold mt-1">{stats.total} Documents</p>
-        </div>
-        
-        <div className="bg-white p-3 rounded-md shadow-sm border-t-2 border-green-500">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 text-xs">Approved</span>
-            <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">{stats.approved}</span>
+          <div>
+            <p className="text-gray-800 font-medium">
+              <span className="text-[#1E3A8A] font-semibold">{stats.total}</span> total document{stats.total !== 1 ? 's' : ''}
+            </p>
+            <p className="text-xs text-gray-500">
+              {stats.approved} approved, {stats.pending} pending, {stats.rejected} rejected
+            </p>
           </div>
-          <p className="text-lg font-semibold mt-1 text-green-600">{stats.approved} Documents</p>
-        </div>
-        
-        <div className="bg-white p-3 rounded-md shadow-sm border-t-2 border-yellow-500">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 text-xs">Pending</span>
-            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">{stats.pending}</span>
-          </div>
-          <p className="text-lg font-semibold mt-1 text-yellow-600">{stats.pending} Documents</p>
-        </div>
-        
-        <div className="bg-white p-3 rounded-md shadow-sm border-t-2 border-red-500">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 text-xs">Rejected</span>
-            <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">{stats.rejected}</span>
-          </div>
-          <p className="text-lg font-semibold mt-1 text-red-600">{stats.rejected} Documents</p>
         </div>
       </div>
       
@@ -293,19 +265,24 @@ const TrackStatus = () => {
           progressPending={loading}
           progressComponent={
             <div className="py-6 flex justify-center">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#0D0637]"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1E3A8A]"></div>
             </div>
           }
           noDataComponent={
-            <div className="p-4 text-center">
+            <div className="p-6 text-center">
+              <FiFileText className="mx-auto h-12 w-12 text-gray-300 mb-3" />
               <p className="text-gray-500">No documents found</p>
+              <p className="text-sm text-gray-400 mt-2">
+                Your submitted documents will appear here
+              </p>
             </div>
           }
           highlightOnHover
+          pointerOnHover
         />
       </div>
       
-      {/* Document View Modal */}
+      {/* View Document Modal */}
       <DocumentViewModal 
         isOpen={viewModalOpen}
         onClose={() => setViewModalOpen(false)}

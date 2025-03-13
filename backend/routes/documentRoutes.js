@@ -1,4 +1,4 @@
-// backend/routes/documentRoutes.js
+// backend/routes/documentRoutes.js - updated with DELETE route
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -9,7 +9,8 @@ const {
   downloadDocument,
   updateDocumentStatus,
   getPendingDocuments,
-  getAllDocuments
+  getAllDocuments,
+  deleteDocument  // Add this import
 } = require('../controllers/documentController');
 const auth = require('../middleware/auth');
 const { checkRole, checkRoles } = require('../middleware/roles');
@@ -26,6 +27,7 @@ router.post('/upload', auth, checkRole('student'), upload.single('file'), upload
 router.get('/student', auth, checkRole('student'), getStudentDocuments);
 router.get('/:id', auth, getDocumentById);
 router.get('/download/:id', auth, downloadDocument);
+router.delete('/:id', auth, deleteDocument);  // Add this route
 
 // Staff routes
 router.get('/pending', auth, checkRole('staff'), getPendingDocuments);

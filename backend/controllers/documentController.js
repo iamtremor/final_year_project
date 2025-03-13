@@ -257,7 +257,49 @@ const getAllDocuments = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+// Add this function to the documentController.js file
 
+// Delete a document by ID
+// Delete a document by ID - Updated for newer Mongoose versions
+const deleteDocument = async (req, res) => {
+  try {
+    const documentId = req.params.id;
+    
+    // Find the document
+    const document = await Document.findById(documentId);
+    
+    if (!document) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+    
+    // Check if user has permission to delete this document
+    if (document.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized to delete this document' });
+    }
+    
+    // Don't allow deletion of approved documents
+    if (document.status === 'approved') {
+      return res.status(400).json({ message: 'Cannot delete approved documents' });
+    }
+    
+    // Delete the file from disk if it exists
+    const filePath = path.join(__dirname, '..', document.filePath);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    
+    // Delete the document from database using deleteOne() instead of remove()
+    await Document.deleteOne({ _id: documentId });
+    
+    res.json({ message: 'Document deleted successfully' });
+  } catch (error) {
+    console.error('Document deletion error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Add this to the exports at the bottom of the file:
+// deleteDocument,
 module.exports = {
   uploadDocument,
   getStudentDocuments,
@@ -265,5 +307,6 @@ module.exports = {
   downloadDocument,
   updateDocumentStatus,
   getPendingDocuments,
-  getAllDocuments
+  getAllDocuments,
+  deleteDocument // Add this to the exports
 };
