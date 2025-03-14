@@ -64,7 +64,33 @@ const DocumentSchema = new mongoose.Schema({
   },
   blockchainTimestamp: {
     type: Date
-  }
+  },
+  // Add this to the existing Document schema
+documentCategory: {
+  type: String,
+  enum: [
+    'Admission Letter', 
+    'JAMB Result', 
+    'JAMB Admission', 
+    'WAEC',
+    'Birth Certificate',
+    'Payment Receipt',
+    'Medical Report',
+    'Passport',
+    'Transcript'
+  ],
+  required: true
+},
+approverRole: {
+  type: String,
+  enum: [
+    'schoolOfficer',
+    'deputyRegistrar',
+    'departmentHead',
+    'studentSupport',
+    'admin'
+  ]
+}
 });
 
 module.exports = mongoose.model('Document', DocumentSchema);

@@ -29,6 +29,73 @@ const uploadDocument = async (req, res) => {
     // Document details from request
     const { title, description, documentType } = req.body;
     
+    const allowedDocumentTypes = [
+      'Admission Letter', 
+      'JAMB Result', 
+      'JAMB Admission', 
+      'WAEC', 
+      'Birth Certificate', 
+      'Payment Receipt', 
+      'Medical Report', 
+      'Passport',
+      'Transcript'
+    ];
+    
+    if (!allowedDocumentTypes.includes(documentType)) {
+      return res.status(400).json({ message: 'Invalid document type' });
+    }
+    
+    // Check if the student has an approved New Clearance Form
+    const userId = req.user._id;
+    const NewClearanceForm = require('../models/NewClearanceForm');
+    const clearanceForm = await NewClearanceForm.findOne({ studentId: userId });
+    
+    if (!clearanceForm || !clearanceForm.deputyRegistrarApproved || !clearanceForm.schoolOfficerApproved) {
+      return res.status(403).json({ 
+        message: 'You need an approved New Clearance Form before uploading documents' 
+      });
+    }
+    
+    // Check if document already exists and is approved
+    const existingDocument = await Document.findOne({ 
+      owner: userId, 
+      documentType 
+    });
+    
+    if (existingDocument && existingDocument.status === 'approved') {
+      return res.status(400).json({ 
+        message: `A ${documentType} has already been approved for you` 
+      });
+    }
+    
+    // Set approver role based on document type
+    let approverRole;
+    switch(documentType) {
+      case 'JAMB Result':
+      case 'JAMB Admission':
+      case 'WAEC':
+        approverRole = 'schoolOfficer';
+        break;
+      case 'Admission Letter':
+        approverRole = 'deputyRegistrar';
+        break;
+      case 'Birth Certificate':
+      case 'Passport':
+        approverRole = 'studentSupport';
+        break;
+      case 'Payment Receipt':
+        approverRole = 'finance';
+        break;
+      case 'Medical Report':
+        approverRole = 'health';
+        break;
+      case 'Transcript':
+        approverRole = 'departmentHead';
+        break;
+      default:
+        approverRole = 'admin';
+    }
+    
     // Check if file was uploaded
     const file = req.file;
     if (!file) {
@@ -53,13 +120,64 @@ const uploadDocument = async (req, res) => {
       fileName: file.originalname,
       fileSize: file.size,
       mimeType: file.mimetype,
-      documentHash: blockchainService.createHash(file.buffer) // Store hash for future verification but don't add to blockchain yet
+      documentHash: blockchainService.createHash(file.buffer), // Store hash for future verification but don't add to blockchain yet
+      approverRole
     });
     
     await document.save();
+    const User = require('../models/User'); // Make sure this is added at the top
+    const Notification = require('../models/Notification'); // Make sure this is added at the top
+    
+    let staffDepartment;
+    switch(approverRole) {
+      case 'schoolOfficer':
+        // Find school officer from student's department
+        const student = await User.findById(userId);
+        staffDepartment = student.department;
+        break;
+      case 'deputyRegistrar':
+        staffDepartment = 'Registrar';
+        break;
+      case 'studentSupport':
+        staffDepartment = 'Student Support';
+        break;
+      case 'finance':
+        staffDepartment = 'Finance';
+        break;
+      case 'health':
+        staffDepartment = 'Health Services';
+        break;
+      case 'departmentHead':
+        // Find HOD from student's department
+        const student2 = await User.findById(userId);
+        staffDepartment = student2.department + ' HOD';
+        break;
+      default:
+        staffDepartment = 'Admin';
+    }
+    
+    // Find appropriate staff member
+    const staff = await User.findOne({ 
+      role: 'staff', 
+      department: staffDepartment 
+    });
+    
+    if (staff) {
+      const notification = new Notification({
+        title: 'New Document Uploaded',
+        description: `A student has uploaded a ${documentType} that requires your review`,
+        recipient: staff._id,
+        status: 'info',
+        type: 'document_upload',
+        documentId: document._id,
+        documentName: title
+      });
+      await notification.save();
+    }
     
     res.status(201).json({ document });
-  } catch (error) {
+  }
+    catch (error) {
     console.error('Document upload error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
@@ -142,6 +260,8 @@ const downloadDocument = async (req, res) => {
 const updateDocumentStatus = async (req, res) => {
   try {
     const { status, feedback } = req.body;
+    const staffId = req.user._id;
+    const documentId = req.params.id;
     
     if (!status) {
       return res.status(400).json({ message: 'Status is required' });
@@ -151,16 +271,26 @@ const updateDocumentStatus = async (req, res) => {
       return res.status(400).json({ message: 'Status must be either "approved" or "rejected"' });
     }
     
-    const document = await Document.findById(req.params.id);
+    const document = await Document.findById(documentId);
     
     if (!document) {
       return res.status(404).json({ message: 'Document not found' });
     }
     
+    // Check if staff has authority to approve this document type
+    if (req.user.role !== 'admin') {
+      const canApprove = await canStaffApproveDocument(req.user, document);
+      if (!canApprove) {
+        return res.status(403).json({ 
+          message: 'Unauthorized: You do not have permission to approve this document type' 
+        });
+      }
+    }
+    
     // Update document status
     document.status = status;
     document.feedback = feedback || '';
-    document.reviewedBy = req.user._id;
+    document.reviewedBy = staffId;
     document.reviewDate = Date.now();
     
     // If document is approved, register it on the blockchain
@@ -210,6 +340,34 @@ const updateDocumentStatus = async (req, res) => {
         document.blockchainTimestamp = Date.now();
         
         console.log(`Document added to blockchain: ${blockchainResult.transactionHash}`);
+        
+        // Create notification for student about document approval
+        const notification = new Notification({
+          title: 'Document Approved',
+          description: `Your ${document.documentType} has been approved.`,
+          recipient: document.owner,
+          status: 'success',
+          type: 'document_approval',
+          documentId: document._id,
+          documentName: document.title
+        });
+        await notification.save();
+        
+        // Check if all documents are now complete and all forms are approved
+        // This will trigger the final clearance process if everything is complete
+        const clearanceComplete = await checkClearanceCompletion(document.owner);
+        
+        if (clearanceComplete) {
+          // Create a special notification for student
+          const completionNotification = new Notification({
+            title: 'Clearance Process Completed',
+            description: 'Congratulations! All your documents and forms have been approved. Your clearance process is now complete.',
+            recipient: document.owner,
+            status: 'success',
+            type: 'clearance_complete'
+          });
+          await completionNotification.save();
+        }
       } catch (blockchainError) {
         console.error('Blockchain document registration error:', blockchainError);
         return res.status(500).json({ 
@@ -217,6 +375,18 @@ const updateDocumentStatus = async (req, res) => {
           error: blockchainError.message
         });
       }
+    } else if (status === 'rejected') {
+      // Create notification for student about document rejection
+      const notification = new Notification({
+        title: 'Document Rejected',
+        description: `Your ${document.documentType} has been rejected. ${feedback ? 'Reason: ' + feedback : ''}`,
+        recipient: document.owner,
+        status: 'error',
+        type: 'document_rejection',
+        documentId: document._id,
+        documentName: document.title
+      });
+      await notification.save();
     }
     
     await document.save();
@@ -230,7 +400,6 @@ const updateDocumentStatus = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
 // Get all pending documents (for staff)
 const getPendingDocuments = async (req, res) => {
   try {
@@ -297,6 +466,312 @@ const deleteDocument = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+/**
+ * Helper function to check if a staff member can approve a document
+ * @param {Object} staff - Staff user
+ * @param {Object} document - Document to approve
+ * @returns {boolean} - Whether the staff can approve this document
+ */
+const canStaffApproveDocument = async (staff, document) => {
+  // If the document has a specific approverRole field, check against that
+  if (document.approverRole) {
+    switch (document.approverRole) {
+      case 'schoolOfficer':
+        // School officer can approve JAMB and WAEC documents
+        return staff.department === (await User.findById(document.owner)).department;
+      case 'deputyRegistrar':
+        return staff.department === 'Registrar';
+      case 'studentSupport':
+        return staff.department === 'Student Support';
+      case 'finance':
+        return staff.department === 'Finance';
+      case 'health':
+        return staff.department === 'Health Services';
+      case 'departmentHead':
+        const studentDept = (await User.findById(document.owner)).department;
+        return staff.department === `${studentDept} HOD`;
+      default:
+        return false;
+    }
+  }
+  
+  // If no specific approverRole, use document type to determine who can approve
+  switch (document.documentType) {
+    case 'JAMB Result':
+    case 'JAMB Admission':
+    case 'WAEC':
+      // School officer can approve these
+      const studentDept = (await User.findById(document.owner)).department;
+      return staff.department === studentDept;
+    case 'Admission Letter':
+      return staff.department === 'Registrar';
+    case 'Birth Certificate':
+    case 'Passport':
+      return staff.department === 'Student Support';
+    case 'Payment Receipt':
+      return staff.department === 'Finance';
+    case 'Medical Report':
+      return staff.department === 'Health Services';
+    case 'Transcript':
+      const studentDept2 = (await User.findById(document.owner)).department;
+      return staff.department === `${studentDept2} HOD`;
+    default:
+      // Admin only for anything else
+      return false;
+  }
+};
+
+/**
+ * Get documents that a staff member can approve
+ * @route   GET /api/documents/staff/approvable
+ * @access  Private (Staff only)
+ */
+const getApprovableDocuments = async (req, res) => {
+  try {
+    // Ensure this is a staff member
+    if (req.user.role !== 'staff' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized: Staff only' });
+    }
+    
+    let documents;
+    
+    if (req.user.role === 'admin') {
+      // Admins can see all pending documents
+      documents = await Document.find({ status: 'pending' })
+        .populate('owner', 'fullName email applicationId department');
+    } else {
+      // For regular staff, filter by their approver role based on department
+      let approverRoles = [];
+      let departmentFilter = {};
+      
+      switch (req.user.department) {
+        case 'Registrar':
+          approverRoles.push('deputyRegistrar');
+          departmentFilter = { documentType: 'Admission Letter' };
+          break;
+        case 'Student Support':
+          approverRoles.push('studentSupport');
+          departmentFilter = { 
+            documentType: { $in: ['Birth Certificate', 'Passport'] } 
+          };
+          break;
+        case 'Finance':
+          approverRoles.push('finance');
+          departmentFilter = { documentType: 'Payment Receipt' };
+          break;
+        case 'Health Services':
+          approverRoles.push('health');
+          departmentFilter = { documentType: 'Medical Report' };
+          break;
+        default:
+          // For academic departments
+          if (req.user.department.includes('HOD')) {
+            approverRoles.push('departmentHead');
+            departmentFilter = { documentType: 'Transcript' };
+          } else {
+            approverRoles.push('schoolOfficer');
+            departmentFilter = { 
+              documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } 
+            };
+          }
+      }
+      
+      // Find documents that this staff can approve
+      documents = await Document.find({
+        status: 'pending',
+        $or: [
+          { approverRole: { $in: approverRoles } },
+          departmentFilter
+        ]
+      }).populate({
+        path: 'owner',
+        select: 'fullName email applicationId department',
+        match: req.user.department.includes('HOD') || 
+               !req.user.department.includes('Registrar') || 
+               !req.user.department.includes('Student Support') || 
+               !req.user.department.includes('Finance') || 
+               !req.user.department.includes('Health Services') 
+               ? { department: req.user.department.replace(' HOD', '') } 
+               : {}
+      });
+      
+      // Filter out null owners (those that didn't match the department)
+      documents = documents.filter(doc => doc.owner !== null);
+    }
+    
+    res.json(documents);
+  } catch (error) {
+    console.error('Error getting approvable documents:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Get completed clearances for reporting
+ * @route   GET /api/documents/clearance/completed
+ * @access  Private (Admin only)
+ */
+const getCompletedClearances = async (req, res) => {
+  try {
+    // Ensure this is an admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized: Admin only' });
+    }
+    
+    // Get all students
+    const students = await User.find({ role: 'student' });
+    
+    // Array to store completed clearances
+    const completedClearances = [];
+    
+    // Check each student's clearance status
+    for (const student of students) {
+      const clearanceStatus = await getStudentClearanceStatus(student._id);
+      
+      if (clearanceStatus.clearanceComplete) {
+        completedClearances.push({
+          student: {
+            id: student._id,
+            fullName: student.fullName,
+            email: student.email,
+            applicationId: student.applicationId,
+            department: student.department
+          },
+          clearanceStatus
+        });
+      }
+    }
+    
+    res.json(completedClearances);
+  } catch (error) {
+    console.error('Error getting completed clearances:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Helper function to get a student's clearance status
+ * @param {string} studentId - Student's ID
+ * @returns {Object} - Clearance status details
+ */
+const getStudentClearanceStatus = async (studentId) => {
+  // Find all forms for this student
+  const NewClearanceForm = require('../models/NewClearanceForm');
+  const ProvAdmissionForm = require('../models/ProvAdmissionForm');
+  const PersonalRecordForm = require('../models/PersonalRecordForm');
+  const PersonalRecord2Form = require('../models/PersonalRecord2Form');
+  const AffidavitForm = require('../models/AffidavitForm');
+  
+  const newClearanceForm = await NewClearanceForm.findOne({ studentId });
+  const provAdmissionForm = await ProvAdmissionForm.findOne({ studentId });
+  const personalRecordForm = await PersonalRecordForm.findOne({ studentId });
+  const personalRecord2Form = await PersonalRecord2Form.findOne({ studentId });
+  const affidavitForm = await AffidavitForm.findOne({ studentId });
+  
+  // Check document status
+  const documents = await Document.find({ owner: studentId });
+  const requiredDocumentTypes = [
+    'Admission Letter', 'JAMB Result', 'JAMB Admission', 
+    'WAEC', 'Birth Certificate', 'Payment Receipt', 
+    'Medical Report', 'Passport'
+  ];
+  
+  const documentStatus = {};
+  requiredDocumentTypes.forEach(type => {
+    const doc = documents.find(d => d.documentType === type);
+    documentStatus[type] = {
+      uploaded: !!doc,
+      approved: doc ? doc.status === 'approved' : false,
+      status: doc ? doc.status : 'not_uploaded',
+      id: doc ? doc._id : null
+    };
+  });
+  
+  // Determine if new clearance form is fully approved
+  const newClearanceApproved = newClearanceForm && 
+    newClearanceForm.deputyRegistrarApproved && 
+    newClearanceForm.schoolOfficerApproved;
+  
+  // Check if all forms and required documents are approved
+  const allFormsSubmitted = newClearanceForm && provAdmissionForm && 
+    personalRecordForm && personalRecord2Form && affidavitForm &&
+    provAdmissionForm.submitted && personalRecordForm.submitted &&
+    personalRecord2Form.submitted && affidavitForm.submitted;
+  
+  const allFormsApproved = newClearanceApproved &&
+    (provAdmissionForm && provAdmissionForm.approved) &&
+    (personalRecordForm && personalRecordForm.approved) &&
+    (personalRecord2Form && personalRecord2Form.approved) &&
+    (affidavitForm && affidavitForm.approved);
+  
+  const allDocumentsApproved = requiredDocumentTypes.every(type => 
+    documentStatus[type].approved
+  );
+  
+  const clearanceComplete = allFormsSubmitted && allFormsApproved && allDocumentsApproved;
+  
+  return {
+    forms: {
+      newClearance: {
+        submitted: !!newClearanceForm,
+        deputyRegistrarApproved: newClearanceForm ? newClearanceForm.deputyRegistrarApproved : false,
+        schoolOfficerApproved: newClearanceForm ? newClearanceForm.schoolOfficerApproved : false,
+        approved: newClearanceApproved
+      },
+      provAdmission: {
+        submitted: provAdmissionForm ? provAdmissionForm.submitted : false,
+        approved: provAdmissionForm ? provAdmissionForm.approved : false
+      },
+      personalRecord: {
+        submitted: personalRecordForm ? personalRecordForm.submitted : false,
+        approved: personalRecordForm ? personalRecordForm.approved : false
+      },
+      personalRecord2: {
+        submitted: personalRecord2Form ? personalRecord2Form.submitted : false,
+        approved: personalRecord2Form ? personalRecord2Form.approved : false
+      },
+      affidavit: {
+        submitted: affidavitForm ? affidavitForm.submitted : false,
+        approved: affidavitForm ? affidavitForm.approved : false
+      }
+    },
+    documents: documentStatus,
+    allFormsSubmitted,
+    allFormsApproved,
+    allDocumentsApproved,
+    clearanceComplete
+  };
+};
+
+/**
+ * Helper function to check if a student's clearance process is complete
+ * Imported from clearanceController for document approval events
+ */
+const checkClearanceCompletion = async (studentId) => {
+  const clearanceStatus = await getStudentClearanceStatus(studentId);
+  
+  if (clearanceStatus.clearanceComplete) {
+    // Find the student
+    const student = await User.findById(studentId);
+    
+    if (student && student.applicationId) {
+      // Record completion on blockchain
+      try {
+        const blockchainResult = await blockchainService.completeClearanceProcess(
+          student.applicationId
+        );
+        
+        console.log(`Clearance process completed on blockchain: ${blockchainResult.transactionHash}`);
+        return true;
+      } catch (error) {
+        console.error('Error recording clearance completion:', error);
+      }
+    }
+  }
+  
+  return false;
+};
+
 
 // Add this to the exports at the bottom of the file:
 // deleteDocument,
@@ -308,5 +783,10 @@ module.exports = {
   updateDocumentStatus,
   getPendingDocuments,
   getAllDocuments,
+  getApprovableDocuments,
+  getCompletedClearances,
+  getStudentClearanceStatus,
+  checkClearanceCompletion,
+  canStaffApproveDocument,
   deleteDocument // Add this to the exports
 };
