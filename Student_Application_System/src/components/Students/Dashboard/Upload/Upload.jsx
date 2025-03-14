@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FiUpload, FiX, FiFile, FiPaperclip, FiInfo, FiCheck, FiAlertTriangle, FiPlus, FiTrash2, FiClock, FiList } from "react-icons/fi";
+import { FiUpload, FiX, FiFile, FiPaperclip, FiInfo,FiLock, FiCheck, FiAlertTriangle, FiPlus, FiTrash2, FiClock, FiList } from "react-icons/fi";
 import { AiOutlineCloudUpload } from "react-icons/ai";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
@@ -7,10 +7,14 @@ import { useAuth } from "../../../../context/AuthContext";
 import Draganddrop from "./Draganddrop";
 import DocumentManagement from "./DocumentManagement"; // Import the new component
 import UploadHistory from "./UploadHistory";
+import { useNavigate } from "react-router-dom";
 const UploadDocuments = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isWithinDeadline, setIsWithinDeadline] = useState(true);
+const [isNewClearanceFormApproved, setIsNewClearanceFormApproved] = useState(false);
+
   const [documentUploads, setDocumentUploads] = useState([
     {
       id: Date.now(),
@@ -26,6 +30,47 @@ const UploadDocuments = () => {
   const [activeTab, setActiveTab] = useState('upload'); // upload, history, manage
   
   useEffect(() => {
+    const checkClearanceStatus = async () => {
+      try {
+        setIsLoading(true);
+        const token = localStorage.getItem('token');
+        
+        // Check deadline
+        if (user?.applicationId) {
+          const deadlineResponse = await axios.get(
+            `/api/blockchain/applications/within-deadline/${user.applicationId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            }
+          );
+          setIsWithinDeadline(deadlineResponse.data.isWithinDeadline);
+        }
+        
+        // Check forms status
+        const formsStatusResponse = await axios.get('/api/clearance/forms', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        // Check if New Clearance Form is fully approved
+        const newClearanceApproved = 
+          formsStatusResponse.data.newClearance.deputyRegistrarApproved && 
+          formsStatusResponse.data.newClearance.schoolOfficerApproved;
+        
+        setIsNewClearanceFormApproved(newClearanceApproved);
+      } catch (error) {
+        console.error('Error checking clearance status:', error);
+        toast.error('Failed to load document upload status');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkClearanceStatus();
+
     // Check if submission is within deadline when component mounts
     const checkDeadline = async () => {
       try {
@@ -49,10 +94,10 @@ const UploadDocuments = () => {
         console.error('Error checking deadline:', error);
       }
     };
-    
+
     checkDeadline();
   }, [user]);
-
+  
   // Handle input change for a specific document upload
   const handleInputChange = (id, field, value) => {
     setDocumentUploads(prevUploads => 
@@ -252,7 +297,30 @@ const UploadDocuments = () => {
       default: return 'bg-gray-300';
     }
   };
-
+  if (!isNewClearanceFormApproved) {
+    return (
+      <div className="text-center py-8">
+        <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+          <FiLock className="text-gray-500 text-xl" />
+        </div>
+        
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          Upload Locked
+        </h3>
+        
+        <p className="text-gray-600 max-w-md mx-auto mb-6">
+          This section is currently locked. You need to complete and get approval for the New Clearance Form first before you can upload documents.
+        </p>
+        
+        <button
+          onClick={() => navigate('/student/forms/new-clearance')}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#1E3A8A] hover:bg-[#152a63]"
+        >
+          Go to New Clearance Form
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <Toaster position="top-right" />
