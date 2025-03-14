@@ -30,6 +30,10 @@ import BlockchainVerified from "./components/Students/Dashboard/Verified/BlockCh
 import DocumentManagement from "./components/Students/Dashboard/Upload/DocumentManagement";
 import FormsStatus from "./components/Students/Dashboard/Forms/FormsStatus";
 import NewClearanceForm from "./components/Students/Dashboard/Forms/NewClearanceForm";
+import ProvAdmissionForm from "./components/Students/Dashboard/Forms/ProvAdmissionForm";
+import PersonalRecordForm from "./components/Students/Dashboard/Forms/PersonalRecordForm";
+import PersonalRecord2Form from "./components/Students/Dashboard/Forms/PersonalRecord2Form";
+import AffidavitForm from "./components/Students/Dashboard/Forms/AffidavitForm";
 
 // Staff components
 import StaffDashboard from "./components/Staff/Dashboard/Dashboard";
@@ -94,6 +98,10 @@ function App() {
               <Route path="approved" element={<Approved />} />
               <Route path="forms" element={<FormsStatus />} />
               <Route path="forms/new-clearance" element={<NewClearanceForm />} />
+              <Route path="forms/prov-admission" element={<ProvAdmissionForm />} />
+              <Route path="forms/personal-record" element={<PersonalRecordForm />} />
+              <Route path="forms/personal-record2" element={<PersonalRecord2Form />} />
+              <Route path="forms/affidavit" element={<AffidavitForm />} />
               <Route path="my-documents" element={<Documents />} />
               <Route path="notifications" element={<Notification />} />
               <Route path="pending" element={<Pending />} />

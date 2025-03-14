@@ -6,35 +6,54 @@ import {
   FiAlertTriangle, 
   FiClock, 
   FiSave, 
-  FiX, 
-  FiLock 
+  FiLock,
+  FiInfo
 } from "react-icons/fi";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { useAuth } from "../../../../context/AuthContext";
 
-const ProvAdmissionForm = () => {
+const AffidavitForm = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     studentName: user?.fullName || "",
+    faculty: "",
     department: user?.department || "",
     course: "",
-    matricNumber: "",
-    session: "",
-    acceptanceDate: ""
+    agreementDate: new Date().toISOString().split('T')[0],
+    signature: "",
+    readAndUnderstood: false,
+    agreeToTerms: false
   });
   
   const [formStatus, setFormStatus] = useState({
     submitted: false,
     approved: false,
     locked: true,
-    submittedDate: null,
-    approvals: []
+    submittedDate: null
   });
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // University rules and regulations - could be fetched from API in a real scenario
+  const rulesAndRegulations = [
+    "1. Students must maintain a high standard of personal and academic integrity.",
+    "2. All students must attend at least 75% of lectures to qualify for examinations.",
+    "3. The use of mobile phones is prohibited during lectures and examinations.",
+    "4. Students must dress modestly and in accordance with the university dress code.",
+    "5. Plagiarism and any form of academic dishonesty will result in disciplinary action.",
+    "6. Students must respect university property and facilities.",
+    "7. Harassment of any kind will not be tolerated and is grounds for expulsion.",
+    "8. Students must adhere to the examination regulations as stipulated by the university.",
+    "9. Unauthorized access to restricted areas of the university is prohibited.",
+    "10. All students must have a valid ID card on campus at all times.",
+    "11. The possession, use, or distribution of illegal substances is strictly prohibited.",
+    "12. Students must follow all health and safety regulations while on campus.",
+    "13. Participation in cult activities is strictly prohibited and is grounds for expulsion.",
+    "14. Students must settle all financial obligations to the university promptly."
+  ];
 
   useEffect(() => {
     fetchFormStatus();
@@ -56,19 +75,18 @@ const ProvAdmissionForm = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      if (response.data && response.data.provAdmission) {
+      if (response.data) {
         // Update form status
         setFormStatus({
-          submitted: response.data.provAdmission.submitted || false,
-          approved: response.data.provAdmission.approved || false,
+          submitted: response.data.affidavit?.submitted || false,
+          approved: response.data.affidavit?.approved || false,
           locked: !response.data.newClearance.approved, // Form is locked if new clearance form is not approved
-          submittedDate: response.data.provAdmission.submittedDate,
-          approvals: response.data.provAdmission.approvals || []
+          submittedDate: response.data.affidavit?.submittedDate
         });
         
         // If form has already been submitted, populate with saved data
-        if (response.data.provAdmission.data) {
-          setFormData(response.data.provAdmission.data);
+        if (response.data.affidavit?.data) {
+          setFormData(response.data.affidavit.data);
         }
       }
     } catch (error) {
@@ -80,10 +98,10 @@ const ProvAdmissionForm = () => {
   };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
@@ -101,8 +119,14 @@ const ProvAdmissionForm = () => {
     }
     
     // Validate form data
-    if (!formData.studentName || !formData.department || !formData.course) {
+    if (!formData.studentName || !formData.department || !formData.signature) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    // Validate checkboxes
+    if (!formData.readAndUnderstood || !formData.agreeToTerms) {
+      toast.error('You must read and agree to all terms and conditions');
       return;
     }
     
@@ -111,7 +135,7 @@ const ProvAdmissionForm = () => {
     try {
       const token = localStorage.getItem('token');
       
-      const response = await axios.post('/api/clearance/forms/prov-admission', formData, {
+      const response = await axios.post('/api/clearance/forms/affidavit', formData, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -131,83 +155,6 @@ const ProvAdmissionForm = () => {
       toast.error(error.response?.data?.message || 'Failed to submit form');
     } finally {
       setSubmitting(false);
-    }
-  };
-  
-  // Function to render approval status
-  const renderApprovalStatus = () => {
-    if (!formStatus.approvals || formStatus.approvals.length === 0) {
-      return (
-        <div className="mt-4 bg-blue-50 p-4 rounded-md">
-          <p className="text-sm text-blue-700">
-            <FiInfo className="inline mr-2" />
-            This form requires approval from multiple officers. Status will be updated here after submission.
-          </p>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="mt-6 bg-gray-50 p-4 rounded-md">
-        <h4 className="font-medium text-gray-700 mb-3">Approval Status</h4>
-        <div className="space-y-3">
-          {formStatus.approvals.map((approval, index) => (
-            <div key={index} className="flex items-center justify-between border-b pb-2">
-              <div className="flex items-center">
-                {approval.approved ? (
-                  <FiCheckCircle className="text-green-500 mr-2" />
-                ) : (
-                  <FiClock className="text-yellow-500 mr-2" />
-                )}
-                <span className="font-medium text-gray-700">
-                  {formatApproverRole(approval.staffRole)}
-                </span>
-              </div>
-              <div>
-                {approval.approved ? (
-                  <span className="text-sm text-green-600">
-                    Approved {approval.approvedDate && `on ${formatDate(approval.approvedDate)}`}
-                  </span>
-                ) : (
-                  <span className="text-sm text-yellow-600">Pending</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-  
-  // Helper to format approver role
-  const formatApproverRole = (role) => {
-    switch (role) {
-      case 'schoolOfficer':
-        return 'School Officer';
-      case 'deputyRegistrar':
-        return 'Deputy Registrar';
-      case 'departmentHead':
-        return 'Department Head (HOD)';
-      case 'studentSupport':
-        return 'Student Support Services';
-      case 'finance':
-        return 'Finance Department';
-      case 'library':
-        return 'Library';
-      case 'health':
-        return 'Health Services';
-      default:
-        return role.charAt(0).toUpperCase() + role.slice(1);
-    }
-  };
-  
-  // Helper to format date
-  const formatDate = (dateString) => {
-    if (!dateString) return "";
-    try {
-      return new Date(dateString).toLocaleDateString();
-    } catch (error) {
-      return dateString;
     }
   };
 
@@ -244,9 +191,9 @@ const ProvAdmissionForm = () => {
       <Toaster position="top-right" />
       
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-[#1E3A8A]">Provisional Admission Form</h2>
+        <h2 className="text-xl font-bold text-[#1E3A8A]">Rules and Regulations Affidavit</h2>
         <p className="mt-1 text-sm text-gray-600">
-          This form confirms your provisional admission to the program and must be approved by multiple departments.
+          Please read the university rules and regulations carefully before signing this affidavit.
         </p>
       </div>
       
@@ -275,8 +222,8 @@ const ProvAdmissionForm = () => {
               }`}>
                 <p>
                   {formStatus.approved 
-                    ? "Your form has been fully approved by all required signatories." 
-                    : "Your form has been submitted and is awaiting approval."}
+                    ? "Your affidavit has been approved." 
+                    : "Your affidavit has been submitted and is awaiting approval."}
                 </p>
                 {formStatus.submittedDate && (
                   <p className="mt-1">
@@ -292,10 +239,15 @@ const ProvAdmissionForm = () => {
       {/* Form */}
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Student Information */}
+          <div className="md:col-span-2">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Student Information</h3>
+          </div>
+          
           {/* Student Name */}
           <div>
             <label htmlFor="studentName" className="block text-sm font-medium text-gray-700">
-              Student Name <span className="text-red-500">*</span>
+              Full Name <span className="text-red-500">*</span>
             </label>
             <div className="mt-1">
               <input
@@ -303,6 +255,25 @@ const ProvAdmissionForm = () => {
                 name="studentName"
                 id="studentName"
                 value={formData.studentName}
+                onChange={handleInputChange}
+                className="shadow-sm focus:ring-[#1E3A8A] focus:border-[#1E3A8A] block w-full sm:text-sm border-gray-300 rounded-md"
+                required
+                disabled={formStatus.submitted}
+              />
+            </div>
+          </div>
+          
+          {/* Faculty */}
+          <div>
+            <label htmlFor="faculty" className="block text-sm font-medium text-gray-700">
+              Faculty/School <span className="text-red-500">*</span>
+            </label>
+            <div className="mt-1">
+              <input
+                type="text"
+                name="faculty"
+                id="faculty"
+                value={formData.faculty}
                 onChange={handleInputChange}
                 className="shadow-sm focus:ring-[#1E3A8A] focus:border-[#1E3A8A] block w-full sm:text-sm border-gray-300 rounded-md"
                 required
@@ -349,78 +320,142 @@ const ProvAdmissionForm = () => {
             </div>
           </div>
           
-          {/* Matric Number */}
-          <div>
-            <label htmlFor="matricNumber" className="block text-sm font-medium text-gray-700">
-              Matriculation Number
-            </label>
-            <div className="mt-1">
-              <input
-                type="text"
-                name="matricNumber"
-                id="matricNumber"
-                value={formData.matricNumber}
-                onChange={handleInputChange}
-                className="shadow-sm focus:ring-[#1E3A8A] focus:border-[#1E3A8A] block w-full sm:text-sm border-gray-300 rounded-md"
-                disabled={formStatus.submitted}
-              />
+          {/* Rules and Regulations Section */}
+          <div className="md:col-span-2 mt-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">University Rules and Regulations</h3>
+            
+            {/* Rules list */}
+            <div className="p-4 border rounded-md bg-gray-50 mb-4 max-h-80 overflow-y-auto">
+              <h4 className="font-medium text-gray-900 mb-2">Please read the following rules and regulations carefully:</h4>
+              <ul className="space-y-2">
+                {rulesAndRegulations.map((rule, index) => (
+                  <li key={index} className="text-gray-700">{rule}</li>
+                ))}
+              </ul>
+            </div>
+            
+            {/* Agreement Checkbox */}
+            <div className="space-y-4">
+              <div className="relative flex items-start">
+                <div className="flex items-center h-5">
+                  <input
+                    id="readAndUnderstood"
+                    name="readAndUnderstood"
+                    type="checkbox"
+                    checked={formData.readAndUnderstood}
+                    onChange={handleInputChange}
+                    className="focus:ring-[#1E3A8A] h-4 w-4 text-[#1E3A8A] border-gray-300 rounded"
+                    disabled={formStatus.submitted}
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <label htmlFor="readAndUnderstood" className="font-medium text-gray-700">
+                    I have read and understood all the university rules and regulations
+                  </label>
+                </div>
+              </div>
+              
+              <div className="relative flex items-start">
+                <div className="flex items-center h-5">
+                  <input
+                    id="agreeToTerms"
+                    name="agreeToTerms"
+                    type="checkbox"
+                    checked={formData.agreeToTerms}
+                    onChange={handleInputChange}
+                    className="focus:ring-[#1E3A8A] h-4 w-4 text-[#1E3A8A] border-gray-300 rounded"
+                    disabled={formStatus.submitted}
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <label htmlFor="agreeToTerms" className="font-medium text-gray-700">
+                    I agree to abide by all the university rules and regulations during my stay in the university
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
           
-          {/* Session */}
-          <div>
-            <label htmlFor="session" className="block text-sm font-medium text-gray-700">
-              Academic Session
-            </label>
-            <div className="mt-1">
-              <input
-                type="text"
-                name="session"
-                id="session"
-                value={formData.session}
-                onChange={handleInputChange}
-                className="shadow-sm focus:ring-[#1E3A8A] focus:border-[#1E3A8A] block w-full sm:text-sm border-gray-300 rounded-md"
-                placeholder="e.g. 2024/2025"
-                disabled={formStatus.submitted}
-              />
-            </div>
+          {/* Signature and Date Section */}
+          <div className="md:col-span-2 mt-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Signature and Date</h3>
           </div>
           
-          {/* Acceptance Date */}
+          {/* Date */}
           <div>
-            <label htmlFor="acceptanceDate" className="block text-sm font-medium text-gray-700">
-              Acceptance Date
+            <label htmlFor="agreementDate" className="block text-sm font-medium text-gray-700">
+              Date <span className="text-red-500">*</span>
             </label>
             <div className="mt-1">
               <input
                 type="date"
-                name="acceptanceDate"
-                id="acceptanceDate"
-                value={formData.acceptanceDate}
+                name="agreementDate"
+                id="agreementDate"
+                value={formData.agreementDate}
                 onChange={handleInputChange}
                 className="shadow-sm focus:ring-[#1E3A8A] focus:border-[#1E3A8A] block w-full sm:text-sm border-gray-300 rounded-md"
+                required
                 disabled={formStatus.submitted}
               />
             </div>
           </div>
+          
+          {/* Signature */}
+          <div>
+            <label htmlFor="signature" className="block text-sm font-medium text-gray-700">
+              Digital Signature (Type your full name) <span className="text-red-500">*</span>
+            </label>
+            <div className="mt-1">
+              <input
+                type="text"
+                name="signature"
+                id="signature"
+                value={formData.signature}
+                onChange={handleInputChange}
+                className="shadow-sm focus:ring-[#1E3A8A] focus:border-[#1E3A8A] block w-full sm:text-sm border-gray-300 rounded-md"
+                required
+                disabled={formStatus.submitted}
+                placeholder="Type your full name as your signature"
+              />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              By typing your full name, you are electronically signing this document.
+            </p>
+          </div>
         </div>
         
-        {/* Approval Status Section */}
-        {renderApprovalStatus()}
-        
-        {/* Form Notice */}
+        {/* Declaration Notice */}
         <div className="rounded-md bg-blue-50 p-4 mt-6">
           <div className="flex">
             <div className="flex-shrink-0">
-              <FiAlertTriangle className="h-5 w-5 text-blue-400" />
+              <FiInfo className="h-5 w-5 text-blue-400" />
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">Important Information</h3>
+              <h3 className="text-sm font-medium text-blue-800">Declaration</h3>
               <div className="mt-2 text-sm text-blue-700">
                 <p>
-                  This form needs to be approved by multiple university officers in sequence. You will 
-                  receive notifications as each officer approves your form. All approvals must be completed
-                  before you can proceed with full registration.
+                  I solemnly declare that I have read and understood all the rules and regulations of the university. 
+                  I promise to abide by all these rules and regulations during my stay in the university. 
+                  I am aware that any violation of these rules and regulations may result in disciplinary action, 
+                  including expulsion from the university.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Legal Warning */}
+        <div className="rounded-md bg-yellow-50 p-4 mt-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <FiAlertTriangle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">Legal Notice</h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>
+                  This electronic signature constitutes a legal and binding agreement. 
+                  False declaration or violation of these rules may lead to legal and disciplinary consequences.
                 </p>
               </div>
             </div>
@@ -446,7 +481,7 @@ const ProvAdmissionForm = () => {
               ) : (
                 <>
                   <FiSave className="-ml-1 mr-2 h-5 w-5" />
-                  Submit Form
+                  Sign and Submit
                 </>
               )}
             </button>
@@ -457,21 +492,4 @@ const ProvAdmissionForm = () => {
   );
 };
 
-const FiInfo = ({ className }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <circle cx="12" cy="12" r="10"></circle>
-    <line x1="12" y1="16" x2="12" y2="12"></line>
-    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-  </svg>
-);
-
-export default ProvAdmissionForm;
+export default AffidavitForm;
