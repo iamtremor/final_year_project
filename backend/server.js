@@ -1,8 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
-const Document = require('./models/Document'); // Add missing import
-const auth = require('./middleware/auth'); // Import auth middleware
+const Document = require('./models/Document');
+const auth = require('./middleware/auth');
 require('dotenv').config();
 const { initializeJobs } = require('./jobs/scheduler');
 // Connect to database
@@ -19,6 +19,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/documents', require('./routes/documentRoutes'));
 app.use('/api/blockchain', require('./routes/blockchainRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes')); // Add this line
 
 // Default route
 app.get('/', (req, res) => {

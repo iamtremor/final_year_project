@@ -6,7 +6,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { useAuth } from "../../../../context/AuthContext";
 import Draganddrop from "./Draganddrop";
 import DocumentManagement from "./DocumentManagement"; // Import the new component
-
+import UploadHistory from "./UploadHistory";
 const UploadDocuments = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -615,26 +615,8 @@ const UploadDocuments = () => {
       )}
       
       {activeTab === 'history' && (
-        <div className="bg-white rounded-xl shadow-sm p-6 text-center">
-          <div className="mx-auto h-12 w-12 text-gray-400">
-            <FiClock className="h-12 w-12" />
-          </div>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">Upload History</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Your document upload history will appear here
-          </p>
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={() => setActiveTab('upload')}
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#1E3A8A] hover:bg-[#152a63] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E3A8A]"
-            >
-              <FiUpload className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-              Upload Documents
-            </button>
-          </div>
-        </div>
-      )}
+  <UploadHistory />
+  )}
     </div>
   );
   
