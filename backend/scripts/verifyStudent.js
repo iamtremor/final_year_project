@@ -3,7 +3,7 @@
 const blockchainService = require('../services/blockchainService');
 
 // ID of the student to verify
-const applicationId = 'BlockD1';
+const applicationId = '140456';
 
 async function verifyStudent() {
   try {

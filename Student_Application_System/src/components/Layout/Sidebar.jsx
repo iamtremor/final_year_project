@@ -31,6 +31,17 @@ const Sidebar = ({ role }) => {
         name: "Dashboard",
         icon: MdOutlineSpaceDashboard,
       },
+      {
+        name: "Forms",
+        icon: FiFileText, // Using the existing FileText icon
+        subLinks: [
+          { path: "/student/forms/new-clearance", name: "New Clearance Form" },
+          { path: "/student/forms/prov-admission", name: "Provisional Admission" },
+          { path: "/student/forms/personal-record", name: "Personal Record" },
+          { path: "/student/forms/personal-record2", name: "Personal Record 2" },
+          { path: "/student/forms/affidavit", name: "Rules & Affidavit" },
+        ]
+      },
       { path: "/student/my-documents", name: "My Documents", icon: FiFileText },
       {
         path: "/student/approved",

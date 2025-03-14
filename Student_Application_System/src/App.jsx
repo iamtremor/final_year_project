@@ -28,6 +28,9 @@ import Track from "./components/Students/Dashboard/Track/Track";
 import BlockchainTest from "./components/testcomponent";
 import BlockchainVerified from "./components/Students/Dashboard/Verified/BlockChainVerified";
 import DocumentManagement from "./components/Students/Dashboard/Upload/DocumentManagement";
+import FormsStatus from "./components/Students/Dashboard/Forms/FormsStatus";
+import NewClearanceForm from "./components/Students/Dashboard/Forms/NewClearanceForm";
+
 // Staff components
 import StaffDashboard from "./components/Staff/Dashboard/Dashboard";
 import StaffApproved from "./components/Staff/StaffApproved";
@@ -35,6 +38,7 @@ import StaffRejected from "./components/Staff/StaffRejected";
 import StaffPending from "./components/Staff/StaffPending";
 import StaffNotification from "./components/Staff/Notification/Notifications";
 import StaffProfile from "./components/Staff/StaffProfile";
+
 
 // Admin components
 import AdminDashboard from "./components/Admin/Dashboard/Dashboard";
@@ -88,6 +92,8 @@ function App() {
             >
               <Route path="dashboard" element={<StudentDashboard />} />
               <Route path="approved" element={<Approved />} />
+              <Route path="forms" element={<FormsStatus />} />
+              <Route path="forms/new-clearance" element={<NewClearanceForm />} />
               <Route path="my-documents" element={<Documents />} />
               <Route path="notifications" element={<Notification />} />
               <Route path="pending" element={<Pending />} />
