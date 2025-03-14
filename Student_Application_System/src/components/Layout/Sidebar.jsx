@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import { AiOutlineCloudUpload } from "react-icons/ai";
 import { IoMdNotificationsOutline, IoIosArrowForward } from "react-icons/io";
 import { HiOutlineDocumentSearch, HiOutlineClock } from "react-icons/hi";
-import { FaUsers, FaTasks, FaRegTimesCircle, FaFileAlt } from "react-icons/fa";
+import { FaUsers, FaTasks, FaRegTimesCircle, FaFileAlt, FaClipboardList } from "react-icons/fa";
 import { FiFileText, FiCheckCircle, FiClock } from "react-icons/fi";
 import { MdOutlineSpaceDashboard, MdOutlineCampaign } from "react-icons/md";
 import { CiSettings } from "react-icons/ci";
@@ -87,7 +87,16 @@ const Sidebar = ({ role }) => {
         name: "Pending Approvals",
         icon: FaTasks,
       },
-
+      {
+        path: "/staff/review-document",
+        name: "Document Review",
+        icon: FaFileAlt,
+      },
+      {
+        path: "/staff/review-form",
+        name: "Form Review",
+        icon: FaClipboardList,
+      },
       {
         path: "/staff/notifications",
         name: "Notifications",

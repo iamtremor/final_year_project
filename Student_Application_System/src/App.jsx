@@ -42,8 +42,8 @@ import StaffRejected from "./components/Staff/StaffRejected";
 import StaffPending from "./components/Staff/StaffPending";
 import StaffNotification from "./components/Staff/Notification/Notifications";
 import StaffProfile from "./components/Staff/StaffProfile";
-
-
+import DocumentReviewPage from "./components/Staff/StaffDocumentReview"
+import FormReviewPage from "./components/Staff/StaffFormReview"
 // Admin components
 import AdminDashboard from "./components/Admin/Dashboard/Dashboard";
 import ManageUsers from "./components/Admin/ManageUsers/ManageUsers";
@@ -133,6 +133,8 @@ function App() {
               <Route path="pending-approvals" element={<StaffPending />} />
               <Route path="notifications" element={<StaffNotification />} />
               <Route path="profile" element={<StaffProfile />} />
+              <Route path="review-document" element={<DocumentReviewPage />} />
+              <Route path="review-form" element={<FormReviewPage />} />
             </Route>
           </Route>
 
