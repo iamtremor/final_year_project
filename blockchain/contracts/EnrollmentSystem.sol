@@ -287,7 +287,47 @@ contract EnrollmentSystem {
     function recordAuditLog(string memory applicationId, string memory action, string memory details) public {
         recordLog(applicationId, msg.sender, action, details);
     }
+    // Add to blockchain/contracts/EnrollmentSystem.sol
+
+// Function to record a student's clearance status
+function recordClearanceStatus(
+    string memory applicationId, 
+    string memory status, 
+    string memory detailsHash
+) public onlyAdmin {
+    require(students[applicationId].exists, "Student does not exist");
     
+    // Record clearance status in a mapping
+    clearanceStatus[applicationId] = ClearanceStatus({
+        status: status,
+        detailsHash: detailsHash,
+        timestamp: block.timestamp,
+        verified: true
+    });
+    
+    // Log action
+    recordLog(applicationId, msg.sender, "CLEARANCE_STATUS_UPDATED", status);
+    
+    emit ClearanceStatusUpdated(applicationId, status, block.timestamp);
+}
+
+// Event for clearance status updates
+event ClearanceStatusUpdated(
+    string applicationId, 
+    string status, 
+    uint256 timestamp
+);
+
+// Structure for clearance status
+struct ClearanceStatus {
+    string status;
+    string detailsHash;
+    uint256 timestamp;
+    bool verified;
+}
+
+// Mapping to store clearance status
+mapping(string => ClearanceStatus) public clearanceStatus;
     // Helper function to convert uint to string
     function uint2str(uint256 _i) internal pure returns (string memory) {
         if (_i == 0) {

@@ -18,7 +18,7 @@ module.exports = {
     providerUrl: process.env.BLOCKCHAIN_PROVIDER_URL || 'http://127.0.0.1:7545',
     
     // Smart contract address (corrected with quotes)
-    contractAddress: process.env.CONTRACT_ADDRESS || "0x7ae5337400BdF02A71149F9d400c0a2bD67096cF",
+    contractAddress: process.env.CONTRACT_ADDRESS || "0x0024C954D4b9486856Cb655DDC9978a3598cAf23",
     
     // Private key for signing transactions (should be in .env file)
     privateKey: process.env.BLOCKCHAIN_PRIVATE_KEY,

@@ -896,7 +896,61 @@ router.post(
     }
   }
 );
+// Add to backend/routes/blockchainRoutes.js
 
+// Student clearance verification
+router.get(
+  '/clearance/verify/:applicationId',
+  auth,
+  checkRoles(['staff', 'admin']),
+  async (req, res) => {
+    try {
+      const { applicationId } = req.params;
+      
+      // Get all blockchain actions for this student
+      const logs = await blockchainService.getStudentLogs(applicationId);
+      
+      // Check for clearance completion action
+      const isCleared = logs.some(log => 
+        log.action === "CLEARANCE_COMPLETED"
+      );
+      
+      // Get form submissions and approvals
+      const formSubmissions = logs.filter(log => 
+        log.action === "FORM_SUBMITTED"
+      );
+      
+      const formApprovals = logs.filter(log => 
+        log.action === "FORM_APPROVED"
+      );
+      
+      // Get document verifications
+      const documentUploads = logs.filter(log => 
+        log.action === "DOCUMENT_UPLOADED"
+      );
+      
+      const documentApprovals = logs.filter(log => 
+        log.action === "DOCUMENT_APPROVED"
+      );
+      
+      res.json({
+        applicationId,
+        isCleared,
+        formSubmissions,
+        formApprovals,
+        documentUploads,
+        documentApprovals,
+        allLogs: logs
+      });
+    } catch (error) {
+      console.error('Error verifying clearance:', error);
+      res.status(500).json({ 
+        message: 'Error verifying clearance on blockchain',
+        error: error.message
+      });
+    }
+  }
+);
 // Diagnose blockchain connection and contract
 router.get('/diagnose', async (req, res) => {
   try {

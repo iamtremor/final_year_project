@@ -817,7 +817,116 @@ async isWithinDeadline(applicationId) {
       return false;
     }
   }
-  
+  // Add these methods to backend/services/blockchainService.js
+
+/**
+ * Record a student's clearance form submission on the blockchain
+ * @param {string} applicationId - Student's application ID
+ * @param {string} formType - Type of form (newClearance, provAdmission, etc.)
+ * @param {Object} formData - Form data to hash and store
+ * @returns {Object} Transaction details
+ */
+async recordClearanceForm(applicationId, formType, formData) {
+  try {
+    console.log(`Recording ${formType} form for student ${applicationId} on blockchain...`);
+    
+    // Create hash of form data
+    const dataHash = this.createHash(formData);
+    
+    // Add document to blockchain using the existing addDocument method with a special format
+    const blockchainResult = await this.addDocument(
+      applicationId, 
+      `FORM:${formType}`, 
+      dataHash,
+      { 
+        gasLimit: 1000000
+      }
+    );
+    
+    // Log this action
+    await this.logAction(
+      applicationId,
+      "FORM_SUBMITTED",
+      `Student submitted ${formType} form`
+    );
+    
+    return {
+      transactionHash: blockchainResult.transactionHash,
+      blockNumber: blockchainResult.blockNumber,
+      formType,
+      dataHash
+    };
+  } catch (error) {
+    console.error(`Error recording ${formType} form on blockchain:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Record approval of a clearance form on blockchain
+ * @param {string} applicationId - Student's application ID
+ * @param {string} formType - Type of form being approved
+ * @param {string} approverRole - Role of the approver (schoolOfficer, deputyRegistrar, etc.)
+ * @returns {Object} Transaction details
+ */
+async recordFormApproval(applicationId, formType, approverRole) {
+  try {
+    console.log(`Recording approval of ${formType} form by ${approverRole} for ${applicationId}...`);
+    
+    // Log this action on the blockchain
+    const blockchainResult = await this.logAction(
+      applicationId,
+      "FORM_APPROVED",
+      `${formType} form approved by ${approverRole}`
+    );
+    
+    return {
+      transactionHash: blockchainResult.transactionHash,
+      blockNumber: blockchainResult.blockNumber,
+      formType,
+      approverRole
+    };
+  } catch (error) {
+    console.error(`Error recording form approval on blockchain:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Verify the completion of entire clearance process
+ * @param {string} applicationId - Student's application ID
+ * @returns {Object} Transaction details
+ */
+async completeClearanceProcess(applicationId) {
+  try {
+    console.log(`Completing clearance process for student ${applicationId}...`);
+    
+    // Update application status to 'CLEARED'
+    const blockchainResult = await this.updateApplicationStatus(
+      applicationId, 
+      "CLEARED",
+      {
+        gasLimit: 1000000
+      }
+    );
+    
+    // Log completion action
+    await this.logAction(
+      applicationId,
+      "CLEARANCE_COMPLETED",
+      `Student clearance process fully completed and verified`
+    );
+    
+    return {
+      transactionHash: blockchainResult.transactionHash,
+      blockNumber: blockchainResult.blockNumber,
+      status: "CLEARED"
+    };
+  } catch (error) {
+    console.error('Error completing clearance process on blockchain:', error);
+    throw error;
+  }
+}
   
   // async diagnoseContract() {
   //   try {
