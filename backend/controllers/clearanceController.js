@@ -1014,8 +1014,140 @@ const approveForm = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+/**
+ * Get forms rejected by the current staff member
+ * @route   GET /api/clearance/forms/rejected-by-me
+ * @access  Private (Staff only)
+ */
+const getRejectedFormsByStaff = async (req, res) => {
+  try {
+    console.log('Staff Rejected Forms Request Details:', {
+      user: {
+        id: req.user._id,
+        role: req.user.role,
+        department: req.user.department
+      }
+    });
+
+    const staffId = req.user._id;
+    const department = req.user.department;
+
+    // Array to store rejected forms
+    const rejectedForms = [];
+
+    // List of form models
+    const formModels = [
+      { name: 'newClearance', model: require('../models/NewClearanceForm') },
+      { name: 'provAdmission', model: require('../models/ProvAdmissionForm') },
+      { name: 'personalRecord', model: require('../models/PersonalRecordForm') },
+      { name: 'personalRecord2', model: require('../models/PersonalRecord2Form') },
+      { name: 'affidavit', model: require('../models/AffidavitForm') }
+    ];
+
+    // Iterate through each form type and find rejected forms
+    for (const formType of formModels) {
+      const forms = await formType.model.find({
+        // Adjust this condition based on how you track rejected forms
+        submitted: true,
+        approved: false
+      }).populate('studentId', 'fullName email');
+
+      // Add form type to each form for identification
+      const formsWithType = forms.map(form => ({
+        ...form.toObject(), 
+        type: formType.name,
+        feedback: 'No specific feedback' // Add a default feedback
+      }));
+
+      rejectedForms.push(...formsWithType);
+    }
+
+    console.log('Rejected Forms Found:', {
+      total: rejectedForms.length,
+      formTypes: rejectedForms.map(f => f.type)
+    });
+
+    res.json(rejectedForms);
+  } catch (error) {
+    console.error('Error in getRejectedFormsByStaff:', error);
+    res.status(500).json({ 
+      message: 'Server error fetching rejected forms',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+};
+
+/**
+ * Get forms approved by the current staff member
+ * @route   GET /api/clearance/forms/approved-by-me
+ * @access  Private (Staff only)
+ */
+const getApprovedFormsByStaff = async (req, res) => {
+  try {
+    console.log('Staff Approved Forms Request Details:', {
+      user: {
+        id: req.user._id,
+        role: req.user.role,
+        department: req.user.department
+      }
+    });
+
+    const staffId = req.user._id;
+    const department = req.user.department;
+
+    // Array to store approved forms
+    const approvedForms = [];
+
+    // List of form models
+    const formModels = [
+      { name: 'newClearance', model: require('../models/NewClearanceForm') },
+      { name: 'provAdmission', model: require('../models/ProvAdmissionForm') },
+      { name: 'personalRecord', model: require('../models/PersonalRecordForm') },
+      { name: 'personalRecord2', model: require('../models/PersonalRecord2Form') },
+      { name: 'affidavit', model: require('../models/AffidavitForm') }
+    ];
+
+    // Iterate through each form type and find approved forms
+    for (const formType of formModels) {
+      const forms = await formType.model.find({
+        // Adjust this condition based on how you track approved forms
+        submitted: true,
+        approved: true
+      }).populate('studentId', 'fullName email');
+
+      // Add form type to each form for identification
+      const formsWithType = forms.map(form => ({
+        ...form.toObject(), 
+        type: formType.name
+      }));
+
+      approvedForms.push(...formsWithType);
+    }
+
+    console.log('Approved Forms Found:', {
+      total: approvedForms.length,
+      formTypes: approvedForms.map(f => f.type)
+    });
+
+    res.json(approvedForms);
+  } catch (error) {
+    console.error('Error in getApprovedFormsByStaff:', error);
+    res.status(500).json({ 
+      message: 'Server error fetching approved forms',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+};
+
+// Add these to your exports
 module.exports = {
-    getFormsStatus,
+  ...module.exports, // Spread existing exports
+  getRejectedFormsByStaff,
+  getApprovedFormsByStaff
+};
+module.exports = {
+  getFormsStatus,
   submitNewClearanceForm,
   submitProvAdmissionForm,
   submitPersonalRecordForm,
@@ -1024,5 +1156,7 @@ module.exports = {
   approveForm,
   getFormById,
   getPendingForms,
-  getStudentForms
-  };
+  getStudentForms,
+  getApprovedFormsByStaff,
+  getRejectedFormsByStaff
+};

@@ -33,11 +33,9 @@ const StaffRejected = () => {
         setLoading(true);
         
         // Get documents rejected by this staff member
-        // This endpoint would need to be created on the backend
         const rejectedDocsResponse = await api.get('/documents/rejected-by-me');
         
         // Get forms rejected by this staff member
-        // This endpoint would need to be created on the backend
         const rejectedFormsResponse = await api.get('/clearance/forms/rejected-by-me');
         
         setRejectedItems({
@@ -48,89 +46,37 @@ const StaffRejected = () => {
         setLoading(false);
       } catch (error) {
         console.error('Error fetching rejected items:', error);
-        setError('Failed to load rejected items. Please try again later.');
-        
-        // For demo purposes, populate with sample data if API endpoints don't exist yet
-        setRejectedItems({
-          forms: [
-            {
-              id: '1',
-              type: 'newClearance',
-              studentName: 'John Doe',
-              submittedDate: '2025-03-12T10:30:00',
-              rejectedDate: '2025-03-13T14:20:00',
-              feedback: 'Incomplete information provided'
-            },
-            {
-              id: '2',
-              type: 'personalRecord',
-              studentName: 'Mary Johnson',
-              submittedDate: '2025-03-10T09:15:00',
-              rejectedDate: '2025-03-11T11:45:00',
-              feedback: 'Please correct your date of birth'
-            }
-          ],
-          documents: [
-            {
-              _id: '1',
-              title: 'WAEC Result',
-              documentType: 'WAEC',
-              owner: { fullName: 'David Smith' },
-              createdAt: '2025-03-09T08:30:00',
-              reviewDate: '2025-03-10T13:20:00',
-              feedback: 'Document is not clearly legible'
-            },
-            {
-              _id: '2',
-              title: 'Birth Certificate',
-              documentType: 'Birth Certificate',
-              owner: { fullName: 'Sarah Williams' },
-              createdAt: '2025-03-08T14:45:00',
-              reviewDate: '2025-03-09T10:10:00',
-              feedback: 'Document appears to be edited'
-            }
-          ]
-        });
+        // Log the full error response
+        console.log('Error details:', error.response?.data);
+        setError(
+          error.response?.data?.message || 
+          'Failed to load rejected items. Please try again later.'
+        );
         setLoading(false);
       }
     };
-
+  
     fetchRejectedItems();
   }, []);
 
-  // Filter items based on current filter and search term
-  const getFilteredItems = () => {
-    // First apply date filter
-    const filteredByDate = {
-      forms: filterByDate(rejectedItems.forms),
-      documents: filterByDate(rejectedItems.documents)
-    };
-    
-    // Then apply search filter
-    if (!searchTerm) {
-      return filteredByDate;
+  // Format form name for display
+  const formatFormName = (formType) => {
+    switch (formType) {
+      case 'newClearance': return 'New Clearance Form';
+      case 'provAdmission': return 'Provisional Admission Form';
+      case 'personalRecord': return 'Personal Record Form';
+      case 'personalRecord2': return 'Family Information Form';
+      case 'affidavit': return 'Rules & Regulations Affidavit';
+      default: return formType;
     }
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown';
     
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    
-    return {
-      forms: filteredByDate.forms.filter(form => {
-        return (
-          (form.studentId?.fullName || '').toLowerCase().includes(lowerSearchTerm) ||
-          (form.studentName || '').toLowerCase().includes(lowerSearchTerm) ||
-          (form.type || '').toLowerCase().includes(lowerSearchTerm) ||
-          (form.feedback || '').toLowerCase().includes(lowerSearchTerm)
-        );
-      }),
-      documents: filteredByDate.documents.filter(doc => {
-        return (
-          (doc.owner?.fullName || '').toLowerCase().includes(lowerSearchTerm) ||
-          (doc.title || '').toLowerCase().includes(lowerSearchTerm) ||
-          (doc.documentType || '').toLowerCase().includes(lowerSearchTerm) ||
-          (doc.feedback || '').toLowerCase().includes(lowerSearchTerm)
-        );
-      })
-    };
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   // Apply date filter
@@ -160,41 +106,42 @@ const StaffRejected = () => {
     });
   };
 
-  // Get items based on active tab
+  // Get items based on active tab and filters
   const getVisibleItems = () => {
-    const filteredItems = getFilteredItems();
-    
-    if (activeTab === 'forms') {
-      return filteredItems.forms;
-    } else if (activeTab === 'documents') {
-      return filteredItems.documents;
-    } else {
-      // Return combined array for 'all' tab with type property
-      return [
-        ...filteredItems.forms.map(form => ({ ...form, itemType: 'form' })),
-        ...filteredItems.documents.map(doc => ({ ...doc, itemType: 'document' }))
-      ];
-    }
-  };
+    // Combine forms and documents with a common structure
+    const combinedItems = [
+      ...rejectedItems.forms.map(form => ({
+        ...form,
+        itemType: 'form',
+        formType: form.type || form.formName,
+        studentName: form.studentId?.fullName || form.studentName,
+        rejectedDate: form.rejectedDate || form.submittedDate,
+        feedback: form.feedback || 'No feedback provided'
+      })),
+      ...rejectedItems.documents.map(doc => ({
+        ...doc,
+        itemType: 'document',
+        studentName: doc.owner?.fullName || 'Unknown Student',
+        rejectedDate: doc.reviewDate,
+        feedback: doc.feedback || 'No feedback provided'
+      }))
+    ];
 
-  // Format form name for display
-  const formatFormName = (formType) => {
-    switch (formType) {
-      case 'newClearance': return 'New Clearance Form';
-      case 'provAdmission': return 'Provisional Admission Form';
-      case 'personalRecord': return 'Personal Record Form';
-      case 'personalRecord2': return 'Family Information Form';
-      case 'affidavit': return 'Rules & Regulations Affidavit';
-      default: return formType;
-    }
-  };
-
-  // Format date for display
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown';
+    // First apply date filter
+    const filteredByDate = filterByDate(combinedItems);
     
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Then apply search filter
+    if (!searchTerm) {
+      return filteredByDate;
+    }
+    
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    
+    return filteredByDate.filter(item => 
+      (item.studentName || '').toLowerCase().includes(lowerSearchTerm) ||
+      (item.title || item.formType || '').toLowerCase().includes(lowerSearchTerm) ||
+      (item.feedback || '').toLowerCase().includes(lowerSearchTerm)
+    );
   };
 
   // Render filter button
@@ -232,6 +179,7 @@ const StaffRejected = () => {
     );
   }
 
+  // Get visible items based on filters
   const visibleItems = getVisibleItems();
 
   return (
@@ -340,73 +288,55 @@ const StaffRejected = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {visibleItems.map((item, index) => {
-                  // Determine if this is a form or document
-                  const isForm = item.itemType === 'form' || !item.itemType;
-                  
-                  // Get appropriate data based on item type
-                  const studentName = isForm 
-                    ? (item.studentId?.fullName || item.studentName || 'Unknown Student')
-                    : (item.owner?.fullName || 'Unknown Student');
-                  
-                  const itemTitle = isForm
-                    ? formatFormName(item.type || item.formName)
-                    : (item.title || 'Untitled Document');
-                  
-                  const rejectedDate = isForm
-                    ? formatDate(item.rejectedDate)
-                    : formatDate(item.reviewDate);
-                  
-                  const itemType = isForm
-                    ? 'Form'
-                    : (item.documentType || 'Document');
-                  
-                  const itemId = isForm
-                    ? item._id || item.id
-                    : item._id;
-                  
-                  const feedback = item.feedback || 'No feedback provided';
-                  
-                  // Determine action link
-                  const viewLink = isForm
-                    ? `/staff/view-form/${itemId}?type=${item.type || ''}`
-                    : `/staff/view-document/${itemId}`;
+                  const isForm = item.itemType === 'form';
                   
                   return (
-                    <tr key={`${index}-${itemId}`} className="hover:bg-gray-50">
+                    <tr key={`${index}-${item._id}`} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {studentName}
+                              {item.studentName}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          {isForm ? <FaClipboardList className="text-red-500 mr-2" /> : <FaFileAlt className="text-red-500 mr-2" />}
-                          <span className="text-sm text-gray-900">{itemType}</span>
+                          {isForm ? (
+                            <FaClipboardList className="text-red-500 mr-2" />
+                          ) : (
+                            <FaFileAlt className="text-red-500 mr-2" />
+                          )}
+                          <span className="text-sm text-gray-900">
+                            {isForm ? formatFormName(item.formType) : item.documentType}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{itemTitle}</div>
+                        <div className="text-sm text-gray-900">
+                          {item.title || formatFormName(item.formType)}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500 flex items-center">
                           <FiCalendar className="mr-1 text-gray-400" />
-                          {rejectedDate}
+                          {formatDate(item.rejectedDate)}
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-red-600 flex items-start">
                           <FaCommentAlt className="mr-1 mt-1 flex-shrink-0" />
-                          <span className="line-clamp-2">{feedback}</span>
+                          <span className="line-clamp-2">{item.feedback}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex items-center space-x-3">
                           <Link
-                            to={viewLink}
+                            to={isForm 
+                              ? `/staff/view-form/${item._id}?type=${item.formType}` 
+                              : `/staff/view-document/${item._id}`
+                            }
                             className="text-blue-600 hover:text-blue-900 flex items-center"
                           >
                             <FaEye className="mr-1" />
@@ -415,7 +345,7 @@ const StaffRejected = () => {
                           
                           {!isForm && (
                             <button
-                              onClick={() => window.location.href = `/documents/download/${itemId}`}
+                              onClick={() => window.location.href = `/documents/download/${item._id}`}
                               className="text-gray-600 hover:text-gray-900 flex items-center"
                             >
                               <FaDownload className="mr-1" />
@@ -432,14 +362,14 @@ const StaffRejected = () => {
           </div>
         ) : (
           <div className="py-8 text-center">
-            <MdOutlineError className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No rejected items</h3>
-            <p className="mt-1 text-sm text-gray-500">You haven't rejected any forms or documents yet.</p>
-          </div>
-        )}
-      </div>
+          <MdOutlineError className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No rejected items</h3>
+          <p className="mt-1 text-sm text-gray-500">You haven't rejected any forms or documents yet.</p>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 };
 
 export default StaffRejected;

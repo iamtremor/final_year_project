@@ -13,7 +13,9 @@ const {
   approveForm,
   getFormById,
   getStudentForms,
-  getPendingForms
+  getPendingForms,
+  getApprovedFormsByStaff, 
+  getRejectedFormsByStaff 
 } = require('../controllers/clearanceController');
 
 
@@ -34,6 +36,7 @@ router.get('/forms/student/:studentId', auth, checkRoles(['staff', 'admin']), ge
 router.get('/forms/:formId', auth, getFormById);
 
 // Staff approval routes
-
+router.get('/forms/approved-by-me', auth, checkRole('staff'), getApprovedFormsByStaff);
+router.get('/forms/rejected-by-me', auth, checkRole('staff'), getRejectedFormsByStaff);
 
 module.exports = router;

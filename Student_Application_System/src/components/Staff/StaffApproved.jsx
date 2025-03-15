@@ -32,12 +32,10 @@ const StaffApproved = () => {
       try {
         setLoading(true);
         
-        // Get documents approved by this staff member
-        // This endpoint would need to be created on the backend
+        // Fetch approved documents
         const approvedDocsResponse = await api.get('/documents/approved-by-me');
         
-        // Get forms approved by this staff member
-        // This endpoint would need to be created on the backend
+        // Fetch approved forms
         const approvedFormsResponse = await api.get('/clearance/forms/approved-by-me');
         
         setApprovedItems({
@@ -48,50 +46,11 @@ const StaffApproved = () => {
         setLoading(false);
       } catch (error) {
         console.error('Error fetching approved items:', error);
-        setError('Failed to load approved items. Please try again later.');
-        setLoading(false);
-        
-        // For demo purposes, populate with sample data if API endpoints don't exist yet
-        setApprovedItems({
-          forms: [
-            {
-              id: '1',
-              type: 'newClearance',
-              studentName: 'John Smith',
-              submittedDate: '2025-03-12T10:30:00',
-              approvedDate: '2025-03-13T14:20:00'
-            },
-            {
-              id: '2',
-              type: 'provAdmission',
-              studentName: 'Sarah Johnson',
-              submittedDate: '2025-03-10T09:15:00',
-              approvedDate: '2025-03-11T11:45:00'
-            }
-          ],
-          documents: [
-            {
-              _id: '1',
-              title: 'JAMB Result',
-              documentType: 'JAMB Result',
-              owner: { fullName: 'Michael Brown' },
-              createdAt: '2025-03-09T08:30:00',
-              reviewDate: '2025-03-10T13:20:00'
-            },
-            {
-              _id: '2',
-              title: 'Admission Letter',
-              documentType: 'Admission Letter',
-              owner: { fullName: 'Jessica Williams' },
-              createdAt: '2025-03-08T14:45:00',
-              reviewDate: '2025-03-09T10:10:00'
-            }
-          ]
-        });
+        setError('Failed to load approved items');
         setLoading(false);
       }
     };
-
+  
     fetchApprovedItems();
   }, []);
 
@@ -157,19 +116,35 @@ const StaffApproved = () => {
 
   // Get items based on active tab
   const getVisibleItems = () => {
-    const filteredItems = getFilteredItems();
+    const combinedItems = [
+      ...approvedItems.forms.map(form => ({
+        ...form,
+        itemType: 'form',
+        formType: form.type || form.formName,
+        studentName: form.studentId?.fullName || form.studentName,
+        approvedDate: form.approvedDate || form.submittedDate
+      })),
+      ...approvedItems.documents.map(doc => ({
+        ...doc,
+        itemType: 'document',
+        studentName: doc.owner?.fullName || 'Unknown Student',
+        approvedDate: doc.reviewDate
+      }))
+    ];
+  
+    // Apply filters
+    const filteredByDate = filterByDate(combinedItems);
     
-    if (activeTab === 'forms') {
-      return filteredItems.forms;
-    } else if (activeTab === 'documents') {
-      return filteredItems.documents;
-    } else {
-      // Return combined array for 'all' tab with type property
-      return [
-        ...filteredItems.forms.map(form => ({ ...form, itemType: 'form' })),
-        ...filteredItems.documents.map(doc => ({ ...doc, itemType: 'document' }))
-      ];
+    if (!searchTerm) {
+      return filteredByDate;
     }
+    
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    
+    return filteredByDate.filter(item => 
+      (item.studentName || '').toLowerCase().includes(lowerSearchTerm) ||
+      (item.title || item.formType || '').toLowerCase().includes(lowerSearchTerm)
+    );
   };
 
   // Format form name for display
@@ -331,86 +306,67 @@ const StaffApproved = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {visibleItems.map((item, index) => {
-                  // Determine if this is a form or document
-                  const isForm = item.itemType === 'form' || !item.itemType;
-                  
-                  // Get appropriate data based on item type
-                  const studentName = isForm 
-                    ? (item.studentId?.fullName || item.studentName || 'Unknown Student')
-                    : (item.owner?.fullName || 'Unknown Student');
-                  
-                  const itemTitle = isForm
-                    ? formatFormName(item.type || item.formName)
-                    : (item.title || 'Untitled Document');
-                  
-                  const approvedDate = isForm
-                    ? formatDate(item.approvedDate)
-                    : formatDate(item.reviewDate);
-                  
-                  const itemType = isForm
-                    ? 'Form'
-                    : (item.documentType || 'Document');
-                  
-                  const itemId = isForm
-                    ? item._id || item.id
-                    : item._id;
-                  
-                  // Determine action link
-                  const viewLink = isForm
-                    ? `/staff/view-form/${itemId}?type=${item.type || ''}`
-                    : `/staff/view-document/${itemId}`;
-                  
-                  return (
-                    <tr key={`${index}-${itemId}`} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {studentName}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {isForm ? <FaClipboardList className="text-green-500 mr-2" /> : <FaFileAlt className="text-green-500 mr-2" />}
-                          <span className="text-sm text-gray-900">{itemType}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{itemTitle}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500 flex items-center">
-                          <FiCalendar className="mr-1 text-gray-400" />
-                          {approvedDate}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex items-center space-x-3">
-                          <Link
-                            to={viewLink}
-                            className="text-blue-600 hover:text-blue-900 flex items-center"
-                          >
-                            <FaEye className="mr-1" />
-                            View
-                          </Link>
-                          
-                          {!isForm && (
-                            <button
-                              onClick={() => window.location.href = `/documents/download/${itemId}`}
-                              className="text-gray-600 hover:text-gray-900 flex items-center"
-                            >
-                              <FaDownload className="mr-1" />
-                              Download
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+              {visibleItems.map((item, index) => {
+  const isForm = item.itemType === 'form';
+  
+  return (
+    <tr key={`${index}-${item._id}`} className="hover:bg-gray-50">
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="flex items-center">
+          <div className="ml-4">
+            <div className="text-sm font-medium text-gray-900">
+              {item.studentName}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="flex items-center">
+          {isForm ? (
+            <FaClipboardList className="text-green-500 mr-2" />
+          ) : (
+            <FaFileAlt className="text-green-500 mr-2" />
+          )}
+          <span className="text-sm text-gray-900">
+            {isForm ? formatFormName(item.formType) : item.documentType}
+          </span>
+        </div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="text-sm text-gray-900">
+          {item.title || formatFormName(item.formType)}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-500 flex items-center">
+          <FiCalendar className="mr-1 text-gray-400" />
+          {formatDate(item.approvedDate)}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm">
+        <div className="flex items-center space-x-3">
+        <Link
+  to={`/staff/view-form/${item._id}?type=${item.type}`}
+  className="text-blue-600 hover:text-blue-900 flex items-center"
+>
+  <FaEye className="mr-1" />
+  View
+</Link>
+          
+          {!isForm && (
+            <button
+              onClick={() => window.location.href = `/documents/download/${item._id}`}
+              className="text-gray-600 hover:text-gray-900 flex items-center"
+            >
+              <FaDownload className="mr-1" />
+              Download
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+})}
               </tbody>
             </table>
           </div>
