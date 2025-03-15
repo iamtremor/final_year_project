@@ -1020,64 +1020,6 @@ const approveForm = async (req, res) => {
  * @route   GET /api/clearance/forms/rejected-by-me
  * @access  Private (Staff only)
  */
-const getRejectedFormsByStaff = async (req, res) => {
-  try {
-    console.log('Staff Rejected Forms Request Details:', {
-      user: {
-        id: req.user._id,
-        role: req.user.role,
-        department: req.user.department
-      }
-    });
-
-    const staffId = req.user._id;
-    const department = req.user.department;
-
-    // Array to store rejected forms
-    const rejectedForms = [];
-
-    // List of form models
-    const formModels = [
-      { name: 'newClearance', model: require('../models/NewClearanceForm') },
-      { name: 'provAdmission', model: require('../models/ProvAdmissionForm') },
-      { name: 'personalRecord', model: require('../models/PersonalRecordForm') },
-      { name: 'personalRecord2', model: require('../models/PersonalRecord2Form') },
-      { name: 'affidavit', model: require('../models/AffidavitForm') }
-    ];
-
-    // Iterate through each form type and find rejected forms
-    for (const formType of formModels) {
-      const forms = await formType.model.find({
-        // Adjust this condition based on how you track rejected forms
-        submitted: true,
-        approved: false
-      }).populate('studentId', 'fullName email');
-
-      // Add form type to each form for identification
-      const formsWithType = forms.map(form => ({
-        ...form.toObject(), 
-        type: formType.name,
-        feedback: 'No specific feedback' // Add a default feedback
-      }));
-
-      rejectedForms.push(...formsWithType);
-    }
-
-    console.log('Rejected Forms Found:', {
-      total: rejectedForms.length,
-      formTypes: rejectedForms.map(f => f.type)
-    });
-
-    res.json(rejectedForms);
-  } catch (error) {
-    console.error('Error in getRejectedFormsByStaff:', error);
-    res.status(500).json({ 
-      message: 'Server error fetching rejected forms',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
-  }
-};
-
 /**
  * Get forms approved by the current staff member
  * @route   GET /api/clearance/forms/approved-by-me
@@ -1110,11 +1052,26 @@ const getApprovedFormsByStaff = async (req, res) => {
 
     // Iterate through each form type and find approved forms
     for (const formType of formModels) {
-      const forms = await formType.model.find({
-        // Adjust this condition based on how you track approved forms
-        submitted: true,
-        approved: true
-      }).populate('studentId', 'fullName email');
+      let query = {
+        submitted: true
+      };
+      
+      // Different models have different approval fields
+      if (formType.name === 'newClearance') {
+        if (department === 'Registrar') {
+          // Deputy Registrar approved forms
+          query.deputyRegistrarApproved = true;
+        } else {
+          // School Officer approved forms
+          query.schoolOfficerApproved = true;
+        }
+      } else {
+        // For all other form types
+        query.approved = true;
+      }
+      
+      const forms = await formType.model.find(query)
+        .populate('studentId', 'fullName email department');
 
       // Add form type to each form for identification
       const formsWithType = forms.map(form => ({
@@ -1140,12 +1097,91 @@ const getApprovedFormsByStaff = async (req, res) => {
   }
 };
 
-// Add these to your exports
-module.exports = {
-  ...module.exports, // Spread existing exports
-  getRejectedFormsByStaff,
-  getApprovedFormsByStaff
+/**
+ * Get forms rejected by the current staff member
+ * @route   GET /api/clearance/forms/rejected-by-me
+ * @access  Private (Staff only)
+ */
+const getRejectedFormsByStaff = async (req, res) => {
+  try {
+    console.log('Staff Rejected Forms Request Details:', {
+      user: {
+        id: req.user._id,
+        role: req.user.role,
+        department: req.user.department
+      }
+    });
+
+    // Array to store rejected forms
+    const rejectedForms = [];
+
+    // List of form models
+    const formModels = [
+      { name: 'newClearance', model: require('../models/NewClearanceForm') },
+      { name: 'provAdmission', model: require('../models/ProvAdmissionForm') },
+      { name: 'personalRecord', model: require('../models/PersonalRecordForm') },
+      { name: 'personalRecord2', model: require('../models/PersonalRecord2Form') },
+      { name: 'affidavit', model: require('../models/AffidavitForm') }
+    ];
+
+    // Iterate through each form type and find rejected forms
+    // For now, let's consider forms that were submitted but not approved as "rejected"
+    // In a real system, you would have a specific rejection status
+    for (const formType of formModels) {
+      let query = {
+        submitted: true
+      };
+      
+      // Different models have different rejection indicators
+      if (formType.name === 'newClearance') {
+        // For New Clearance forms, we'll consider them rejected if they were submitted
+        // more than 7 days ago and aren't approved
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        
+        query.submittedDate = { $lt: oneWeekAgo };
+        
+        if (req.user.department === 'Registrar') {
+          query.deputyRegistrarApproved = false;
+        } else {
+          query.deputyRegistrarApproved = true;
+          query.schoolOfficerApproved = false;
+        }
+      } else {
+        // For other form types, check if they've been submitted but not approved
+        query.approved = false;
+      }
+      
+      const forms = await formType.model.find(query)
+        .populate('studentId', 'fullName email department');
+
+      // Add form type to each form for identification
+      const formsWithType = forms.map(form => ({
+        ...form.toObject(), 
+        type: formType.name,
+        feedback: form.comments || form.feedback || 'No feedback provided'
+      }));
+
+      rejectedForms.push(...formsWithType);
+    }
+
+    console.log('Rejected Forms Found:', {
+      total: rejectedForms.length,
+      formTypes: rejectedForms.map(f => f.type)
+    });
+
+    res.json(rejectedForms);
+  } catch (error) {
+    console.error('Error in getRejectedFormsByStaff:', error);
+    res.status(500).json({ 
+      message: 'Server error fetching rejected forms',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
 };
+
+// Add these to your exports
+
 module.exports = {
   getFormsStatus,
   submitNewClearanceForm,

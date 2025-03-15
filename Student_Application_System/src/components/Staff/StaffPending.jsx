@@ -7,6 +7,9 @@ import {
   FaChevronRight,
   FaClipboardList,
   FaFileAlt,
+  FaEye,
+  FaCheck,
+  FaTimes,
   FaSearch
 } from "react-icons/fa";
 import { 
