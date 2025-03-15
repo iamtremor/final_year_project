@@ -363,7 +363,8 @@ const StaffPending = () => {
                 onClick={() => setSelectedFilter(filter)}
               >
                 {filter === 'all' ? 'All Time' : 
-                 filter === 'today' ? 'Today' :filter === 'week' ? 'This Week' : 
+                 filter === 'today' ? 'Today' : 
+                 filter === 'week' ? 'This Week' : 
                  'This Month'}
               </button>
             ))}
@@ -418,28 +419,39 @@ const StaffPending = () => {
                 cell: row => {
                   const isForm = row.type || row.itemType === 'form';
                   const itemId = row._id;
-                  const actionLink = isForm
-                    ? `/staff/review-form/${itemId}?type=${row.type || ''}`
-                    : `/staff/review-document/${itemId}`;
+                  
+                  // Determine the correct URL for the action links based on item type
+                  let viewLink, approveLink, rejectLink;
+                  
+                  if (isForm) {
+                    const formType = row.type || '';
+                    viewLink = `/staff/review-form/${itemId}?type=${formType}`;
+                    approveLink = `/staff/review-form/${itemId}?type=${formType}`;
+                    rejectLink = `/staff/review-form/${itemId}?type=${formType}`;
+                  } else {
+                    viewLink = `/staff/review-document/${itemId}`;
+                    approveLink = `/staff/review-document/${itemId}`;
+                    rejectLink = `/staff/review-document/${itemId}`;
+                  }
 
                   return (
                     <div className="py-2 flex space-x-3">
                       <Link
-                        to={actionLink}
+                        to={viewLink}
                         className="text-blue-600 hover:text-blue-800 flex items-center"
                       >
                         <FaEye className="mr-1" />
                         View
                       </Link>
                       <Link
-                        to={actionLink}
+                        to={approveLink}
                         className="text-green-600 hover:text-green-800 flex items-center"
                       >
                         <FaCheck className="mr-1" />
                         Approve
                       </Link>
                       <Link
-                        to={actionLink}
+                        to={rejectLink}
                         className="text-red-600 hover:text-red-800 flex items-center"
                       >
                         <FaTimes className="mr-1" />

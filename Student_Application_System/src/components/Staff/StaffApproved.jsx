@@ -268,7 +268,7 @@ const StaffApproved = () => {
         
         {/* Date Filter Buttons */}
         <div className="mt-4 flex items-center">
-          <div className="mr-3 flex items-center">
+        <div className="mr-3 flex items-center">
             <FaFilter className="text-gray-500 mr-2" />
             <span className="text-sm text-gray-500">Filter by:</span>
           </div>
@@ -307,66 +307,78 @@ const StaffApproved = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
               {visibleItems.map((item, index) => {
-  const isForm = item.itemType === 'form';
-  
-  return (
-    <tr key={`${index}-${item._id}`} className="hover:bg-gray-50">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
-          <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900">
-              {item.studentName}
-            </div>
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
-          {isForm ? (
-            <FaClipboardList className="text-green-500 mr-2" />
-          ) : (
-            <FaFileAlt className="text-green-500 mr-2" />
-          )}
-          <span className="text-sm text-gray-900">
-            {isForm ? formatFormName(item.formType) : item.documentType}
-          </span>
-        </div>
-      </td>
-      <td className="px-6 py-4">
-        <div className="text-sm text-gray-900">
-          {item.title || formatFormName(item.formType)}
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-500 flex items-center">
-          <FiCalendar className="mr-1 text-gray-400" />
-          {formatDate(item.approvedDate)}
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm">
-        <div className="flex items-center space-x-3">
-        <Link
-  to={`/staff/view-form/${item._id}?type=${item.type}`}
-  className="text-blue-600 hover:text-blue-900 flex items-center"
->
-  <FaEye className="mr-1" />
-  View
-</Link>
-          
-          {!isForm && (
-            <button
-              onClick={() => window.location.href = `/documents/download/${item._id}`}
-              className="text-gray-600 hover:text-gray-900 flex items-center"
-            >
-              <FaDownload className="mr-1" />
-              Download
-            </button>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
-})}
+                const isForm = item.itemType === 'form';
+                
+                return (
+                  <tr key={`${index}-${item._id}`} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {item.studentName}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {isForm ? (
+                          <FaClipboardList className="text-green-500 mr-2" />
+                        ) : (
+                          <FaFileAlt className="text-green-500 mr-2" />
+                        )}
+                        <span className="text-sm text-gray-900">
+                          {isForm ? formatFormName(item.formType) : item.documentType}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">
+                        {item.title || formatFormName(item.formType)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500 flex items-center">
+                        <FiCalendar className="mr-1 text-gray-400" />
+                        {formatDate(item.approvedDate)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+  <div className="flex items-center space-x-3">
+    {isForm ? (
+      <Link
+        // Key fix: Use the correct form type, not just the generic "type" property
+        to={`/staff/review-form/${item._id}?type=${item.formType || item.type || 'newClearance'}`}
+        className="text-blue-600 hover:text-blue-900 flex items-center"
+      >
+        <FaEye className="mr-1" />
+        View
+      </Link>
+    ) : (
+      <Link
+        to={`/staff/review-document/${item._id}`}
+        className="text-blue-600 hover:text-blue-900 flex items-center"
+      >
+        <FaEye className="mr-1" />
+        View
+      </Link>
+    )}
+    
+    {!isForm && (
+      <button
+        // Update the download URL to use the correct API path
+        onClick={() => window.location.href = `/api/documents/download/${item._id}`}
+        className="text-gray-600 hover:text-gray-900 flex items-center"
+      >
+        <FaDownload className="mr-1" />
+        Download
+      </button>
+    )}
+  </div>
+</td>
+                  </tr>
+                );
+              })}
               </tbody>
             </table>
           </div>

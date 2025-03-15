@@ -5,7 +5,7 @@ import { AiOutlineCloudUpload } from "react-icons/ai";
 import { IoMdNotificationsOutline, IoIosArrowForward } from "react-icons/io";
 import { HiOutlineDocumentSearch, HiOutlineClock } from "react-icons/hi";
 import { FaUsers, FaTasks, FaRegTimesCircle, FaFileAlt, FaClipboardList } from "react-icons/fa";
-import { FiFileText, FiCheckCircle, FiClock } from "react-icons/fi";
+import { FiFileText, FiCheckCircle, FiClock,FiXCircle, FiCircle } from "react-icons/fi";
 import { MdOutlineSpaceDashboard, MdOutlineCampaign } from "react-icons/md";
 import { CiSettings } from "react-icons/ci";
 import { IoBarChart } from "react-icons/io5";
@@ -74,6 +74,11 @@ const Sidebar = ({ role }) => {
         icon: MdOutlineSpaceDashboard,
       },
       {
+        path: "/staff/pending-approvals",
+        name: "Pending Approvals",
+        icon: FaTasks,
+      },
+      {
         path: "/staff/approved",
         name: "Approved Documents",
         icon: FiCheckCircle,
@@ -81,23 +86,9 @@ const Sidebar = ({ role }) => {
       {
         path: "/staff/rejected",
         name: "Rejected Documents",
-        icon: FiCheckCircle,
+        icon: FiXCircle,
       },
-      {
-        path: "/staff/pending-approvals",
-        name: "Pending Approvals",
-        icon: FaTasks,
-      },
-      {
-        path: "/staff/review-document",
-        name: "Document Review",
-        icon: FaFileAlt,
-      },
-      {
-        path: "/staff/review-form",
-        name: "Form Review",
-        icon: FaClipboardList,
-      },
+     
       {
         path: "/staff/notifications",
         name: "Notifications",

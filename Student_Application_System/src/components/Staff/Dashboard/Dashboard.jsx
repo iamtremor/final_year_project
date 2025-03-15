@@ -1,3 +1,4 @@
+// backend/components/Staff/Dashboard/Dashboard.jsx
 import React, { useState, useEffect } from "react";
 import { 
   FaRegClock, 
@@ -145,63 +146,67 @@ const StaffDashboard = () => {
   };
 
   // Columns for Forms DataTable
-  const formsColumns = [
-    {
-      name: "Student Name",
-      selector: row => row.studentId?.fullName || row.studentName || "Unknown Student",
-      sortable: true,
-      cell: row => (
-        <div className="py-2 font-medium">{row.studentId?.fullName || row.studentName || "Unknown Student"}</div>
-      )
-    },
-    {
-      name: "Form Type",
-      selector: row => row.formType,
-      sortable: true,
-      cell: row => (
-        <div className="py-2">
-          {row.formType === 'newClearance' ? 'New Clearance Form' : 
-           row.formType === 'provAdmission' ? 'Provisional Admission Form' :
-           row.formType === 'personalRecord' ? 'Personal Record Form' :
-           row.formType === 'personalRecord2' ? 'Family Information Form' :
-           row.formType === 'affidavit' ? 'Rules & Regulations Affidavit' :
-           'Unknown Form'}
-        </div>
-      )
-    },
-    {
-      name: "Submitted Date",
-      selector: row => row.submittedDate,
-      sortable: true,
-      cell: row => (
-        <div className="py-2 text-gray-500">
-          {new Date(row.submittedDate).toLocaleDateString()}
-        </div>
-      )
-    },
-    {
-      name: "Status",
-      selector: row => row.status,
-      cell: row => (
-        <div className="py-2">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-            <FiClock className="mr-1" /> Pending Review
-          </span>
-        </div>
-      )
-    },
-    {
-      name: "Action",
-      cell: row => (
-        <Link 
-          to={`/staff/review-form/${row._id}?type=${row.formType}`}
-          className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
-        >
-          Review
-        </Link>
-      )
-    }
-  ];
+  // This is the forms columns section from StaffDashboard.jsx
+// Focus on the Action column where we generate the link
+
+const formsColumns = [
+  {
+    name: "Student Name",
+    selector: row => row.studentId?.fullName || row.studentName || "Unknown Student",
+    sortable: true,
+    cell: row => (
+      <div className="py-2 font-medium">{row.studentId?.fullName || row.studentName || "Unknown Student"}</div>
+    )
+  },
+  {
+    name: "Form Type",
+    selector: row => row.formType,
+    sortable: true,
+    cell: row => (
+      <div className="py-2">
+        {row.formType === 'newClearance' ? 'New Clearance Form' : 
+         row.formType === 'provAdmission' ? 'Provisional Admission Form' :
+         row.formType === 'personalRecord' ? 'Personal Record Form' :
+         row.formType === 'personalRecord2' ? 'Family Information Form' :
+         row.formType === 'affidavit' ? 'Rules & Regulations Affidavit' :
+         'Unknown Form'}
+      </div>
+    )
+  },
+  {
+    name: "Submitted Date",
+    selector: row => row.submittedDate,
+    sortable: true,
+    cell: row => (
+      <div className="py-2 text-gray-500">
+        {new Date(row.submittedDate).toLocaleDateString()}
+      </div>
+    )
+  },
+  {
+    name: "Status",
+    selector: row => row.status,
+    cell: row => (
+      <div className="py-2">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          <FiClock className="mr-1" /> Pending Review
+        </span>
+      </div>
+    )
+  },
+  {
+    name: "Action",
+    cell: row => (
+      <Link 
+        // The key change is here - use the actual formType value, not just "forms"
+        to={`/staff/review-form/${row._id}?type=${row.formType || 'newClearance'}`}
+        className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
+      >
+        Review
+      </Link>
+    )
+  }
+];
 
   // Columns for Documents DataTable
   const documentsColumns = [

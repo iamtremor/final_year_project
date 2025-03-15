@@ -133,8 +133,8 @@ function App() {
               <Route path="pending-approvals" element={<StaffPending />} />
               <Route path="notifications" element={<StaffNotification />} />
               <Route path="profile" element={<StaffProfile />} />
-              <Route path="review-document" element={<DocumentReviewPage />} />
-              <Route path="review-form" element={<FormReviewPage />} />
+              <Route path="review-document/:id" element={<DocumentReviewPage />} />
+              <Route path="review-form/:id" element={<FormReviewPage />} />
             </Route>
           </Route>
 
