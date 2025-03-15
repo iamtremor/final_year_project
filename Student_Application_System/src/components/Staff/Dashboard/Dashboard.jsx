@@ -1,27 +1,92 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { useAuth } from "../../../context/AuthContext";
-import axios from "axios";
-import api from "../../../utils/api";
 import { 
-  FaTasks, 
-  FaCheckCircle, 
-  FaTimesCircle, 
-  FaBell, 
-  FaUserCircle,
+  FaRegClock, 
+  FaClipboardCheck, 
+  FaRegTimesCircle, 
+  FaChevronRight,
   FaClipboardList,
-  FaFileAlt
+  FaFileAlt,
+  FaBell
 } from "react-icons/fa";
-import { FiAlertTriangle, FiClock } from "react-icons/fi";
-import { MdOutlineSpaceDashboard } from "react-icons/md";
+import { FiClock, FiCheckCircle, FiXCircle, FiAlertTriangle } from "react-icons/fi";
+import { Link } from "react-router-dom";
+import DataTable from "react-data-table-component";
+import { useAuth } from "../../../context/AuthContext";
+import api from "../../../utils/api";
 
-const Dashboard = () => {
+const StaffDashboard = () => {
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
   const [pendingForms, setPendingForms] = useState([]);
   const [pendingDocuments, setPendingDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Custom styles for DataTable
+  const customStyles = {
+    headCells: {
+      style: {
+        fontSize: '0.875rem',
+        fontWeight: '600',
+        color: '#1E3A8A',
+        backgroundColor: '#F9FAFB',
+        paddingLeft: '16px',
+        paddingRight: '16px',
+      },
+    },
+    rows: {
+      style: {
+        fontSize: '0.875rem',
+        minHeight: '48px',
+        '&:not(:last-of-type)': {
+          borderBottomStyle: 'solid',
+          borderBottomWidth: '1px',
+          borderBottomColor: '#F3F4F6',
+        },
+      },
+      highlightOnHoverStyle: {
+        backgroundColor: '#F9FAFB',
+        borderBottomColor: '#F3F4F6',
+        outline: '1px solid #F3F4F6',
+        borderRadius: '4px',
+      },
+    },
+    pagination: {
+      style: {
+        color: '#1E3A8A',
+        fontSize: '0.875rem',
+        minHeight: '56px',
+        backgroundColor: '#FFFFFF',
+        borderTopStyle: 'solid',
+        borderTopWidth: '1px',
+        borderTopColor: '#F3F4F6',
+      },
+      pageButtonsStyle: {
+        borderRadius: '50%',
+        height: '32px',
+        width: '32px',
+        padding: '8px',
+        margin: '0px 4px',
+        cursor: 'pointer',
+        transition: '0.4s',
+        color: '#1E3A8A',
+        fill: '#1E3A8A',
+        backgroundColor: 'transparent',
+        '&:disabled': {
+          cursor: 'unset',
+          color: '#9CA3AF',
+          fill: '#9CA3AF',
+        },
+        '&:hover:not(:disabled)': {
+          backgroundColor: '#F3F4F6',
+        },
+        '&:focus': {
+          outline: 'none',
+          backgroundColor: '#F3F4F6',
+        },
+      },
+    },
+  };
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -38,12 +103,8 @@ const Dashboard = () => {
           api.get('/documents/staff/approvable')
         ]);
   
-        console.log('Dashboard Data:', dashboardResponse.data);
-        console.log('Pending Forms:', formsResponse.data);
-        console.log('Pending Documents:', documentsResponse.data);
-  
         setDashboardData(dashboardResponse.data);
-        setPendingForms(formsResponse.data.forms || []); // Use .forms from the new backend response
+        setPendingForms(formsResponse.data.forms || []);
         setPendingDocuments(documentsResponse.data);
   
         setLoading(false);
@@ -60,19 +121,16 @@ const Dashboard = () => {
   
     fetchDashboardData();
   }, []);
-  // Function to get the appropriate forms based on staff department
+
+  // Function to get relevant forms
   const getRelevantForms = () => {
     if (!user || !pendingForms) return [];
   
-    // Filter forms based on staff department and role
     return pendingForms.filter(form => {
-      // For Deputy Registrar: all New Clearance forms not yet approved
       if (user.department === 'Registrar') {
         return form.formType === 'newClearance' && !form.deputyRegistrarApproved;
       }
       
-      // For School Officers: New Clearance forms approved by Deputy Registrar 
-      // and for their department
       if (!user.department.includes('HOD')) {
         return (
           form.formType === 'newClearance' && 
@@ -82,68 +140,118 @@ const Dashboard = () => {
         );
       }
   
-      // For other cases, include all pending forms
       return true;
     });
   };
 
-  const renderStats = () => {
-    if (!dashboardData || !dashboardData.stats) return null;
-
-    const { stats } = dashboardData;
-
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        {/* Pending Approvals Card */}
-        <Link
-          to="/staff/pending-approvals"
-          className="bg-yellow-100 p-6 rounded-md shadow-md flex items-center justify-between hover:bg-yellow-200 transition"
-        >
-          <div>
-            <h3 className="text-lg font-semibold text-yellow-800">
-              Pending Approvals
-            </h3>
-            <p className="text-sm text-yellow-600">
-              {stats.pendingApprovals.forms + stats.pendingApprovals.documents} items awaiting your review
-            </p>
-          </div>
-          <FaTasks size={30} className="text-yellow-600" />
-        </Link>
-
-        {/* Approved Documents Card */}
-        <Link
-          to="/staff/approved"
-          className="bg-green-100 p-6 rounded-md shadow-md flex items-center justify-between hover:bg-green-200 transition"
-        >
-          <div>
-            <h3 className="text-lg font-semibold text-green-800">
-              Approved Items
-            </h3>
-            <p className="text-sm text-green-600">
-              {stats.completedApprovals.forms + stats.completedApprovals.documents} items you have approved
-            </p>
-          </div>
-          <FaCheckCircle size={30} className="text-green-600" />
-        </Link>
-
-        {/* Department Stats Card */}
-        <div className="bg-blue-100 p-6 rounded-md shadow-md flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-blue-800">
-              Department: {user?.department}
-            </h3>
-            <p className="text-sm text-blue-600">
-              {stats.studentsInDepartment > 0 
-                ? `${stats.studentsInDepartment} students in your department` 
-                : "Department-wide support role"}
-            </p>
-          </div>
-          <FaUserCircle size={30} className="text-blue-600" />
+  // Columns for Forms DataTable
+  const formsColumns = [
+    {
+      name: "Student Name",
+      selector: row => row.studentId?.fullName || row.studentName || "Unknown Student",
+      sortable: true,
+      cell: row => (
+        <div className="py-2 font-medium">{row.studentId?.fullName || row.studentName || "Unknown Student"}</div>
+      )
+    },
+    {
+      name: "Form Type",
+      selector: row => row.formType,
+      sortable: true,
+      cell: row => (
+        <div className="py-2">
+          {row.formType === 'newClearance' ? 'New Clearance Form' : 
+           row.formType === 'provAdmission' ? 'Provisional Admission Form' :
+           row.formType === 'personalRecord' ? 'Personal Record Form' :
+           row.formType === 'personalRecord2' ? 'Family Information Form' :
+           row.formType === 'affidavit' ? 'Rules & Regulations Affidavit' :
+           'Unknown Form'}
         </div>
-      </div>
-    );
-  };
+      )
+    },
+    {
+      name: "Submitted Date",
+      selector: row => row.submittedDate,
+      sortable: true,
+      cell: row => (
+        <div className="py-2 text-gray-500">
+          {new Date(row.submittedDate).toLocaleDateString()}
+        </div>
+      )
+    },
+    {
+      name: "Status",
+      selector: row => row.status,
+      cell: row => (
+        <div className="py-2">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            <FiClock className="mr-1" /> Pending Review
+          </span>
+        </div>
+      )
+    },
+    {
+      name: "Action",
+      cell: row => (
+        <Link 
+          to={`/staff/review-form/${row._id}?type=${row.formType}`}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
+        >
+          Review
+        </Link>
+      )
+    }
+  ];
 
+  // Columns for Documents DataTable
+  const documentsColumns = [
+    {
+      name: "Student Name",
+      selector: row => row.owner?.fullName || "Unknown Student",
+      sortable: true,
+      cell: row => (
+        <div className="py-2 font-medium">{row.owner?.fullName || "Unknown Student"}</div>
+      )
+    },
+    {
+      name: "Document Type",
+      selector: row => row.documentType,
+      sortable: true
+    },
+    {
+      name: "Uploaded Date",
+      selector: row => row.createdAt,
+      sortable: true,
+      cell: row => (
+        <div className="py-2 text-gray-500">
+          {new Date(row.createdAt).toLocaleDateString()}
+        </div>
+      )
+    },
+    {
+      name: "Status",
+      cell: row => (
+        <div className="py-2">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            <FiClock className="mr-1" /> Pending Review
+          </span>
+        </div>
+      )
+    },
+    {
+      name: "Action",
+      cell: row => (
+        <Link 
+          to={`/staff/review-document/${row._id}`}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
+        >
+          Review
+        </Link>
+      )
+    }
+  ];
+
+  // Render loading state
   if (loading) {
     return (
       <div className="p-6 flex justify-center items-center">
@@ -152,6 +260,7 @@ const Dashboard = () => {
     );
   }
 
+  // Render error state
   if (error) {
     return (
       <div className="p-6">
@@ -163,205 +272,204 @@ const Dashboard = () => {
     );
   }
 
-  // Get the relevant forms for this staff member
+  // Get relevant forms
   const relevantForms = getRelevantForms();
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="flex items-center mb-6">
-        <MdOutlineSpaceDashboard size={30} className="text-[#1E3A8A] mr-2" />
-        <h2 className="text-2xl font-bold text-[#1E3A8A]">Staff Dashboard</h2>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Staff Dashboard</h1>
+        <p className="text-gray-500 mt-1">Welcome to your operational control center</p>
       </div>
+      {/* Quick Summary Cards */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Pending Approvals Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md">
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="rounded-full bg-yellow-100 p-3">
+                  <FaRegClock className="text-yellow-700 text-xl" />
+                </div>
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">
+                  Pending
+                </span>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-500">Pending Approvals</h3>
+                <p className="text-2xl font-semibold mt-1 text-gray-900">
+                  {dashboardData?.stats?.pendingApprovals.forms + dashboardData?.stats?.pendingApprovals.documents}
+                </p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <Link to="/staff/pending-approvals" className="text-yellow-600 hover:text-yellow-800 text-sm font-medium flex items-center">
+                  View all pending
+                  <FaChevronRight className="ml-1 text-xs" />
+                </Link>
+              </div>
+            </div>
+          </div>
 
-      {/* Statistics Cards */}
-      {renderStats()}
+          {/* Approved Items Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md">
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="rounded-full bg-green-100 p-3">
+                  <FaClipboardCheck className="text-green-700 text-xl" />
+                </div>
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700">
+                  Approved
+                </span>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-500">Approved Items</h3>
+                <p className="text-2xl font-semibold mt-1 text-gray-900">
+                  {dashboardData?.stats?.completedApprovals.forms + dashboardData?.stats?.completedApprovals.documents}
+                </p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <Link to="/staff/approved" className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center">
+                  View all approved
+                  <FaChevronRight className="ml-1 text-xs" />
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Rejected Items Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md">
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="rounded-full bg-red-100 p-3">
+                  <FaRegTimesCircle className="text-red-700 text-xl" />
+                </div>
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700">
+                  Rejected
+                </span>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-500">Rejected Items</h3>
+                <p className="text-2xl font-semibold mt-1 text-gray-900">0</p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <Link to="/staff/rejected" className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center">
+                  View rejected items
+                  <FaChevronRight className="ml-1 text-xs" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Pending Forms Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex items-center mb-4">
-          <FaClipboardList size={22} className="text-[#1E3A8A] mr-2" />
-          <h3 className="text-lg font-bold text-[#1E3A8A]">Forms Awaiting Your Approval</h3>
+      <section className="mb-8">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-100 flex items-center">
+            <FaClipboardList className="mr-2 text-[#1E3A8A]" />
+            <h2 className="text-lg font-bold text-gray-900">Pending Forms</h2>
+          </div>
+          <div className="p-6">
+            {relevantForms.length > 0 ? (
+              <DataTable
+                columns={formsColumns}
+                data={relevantForms}
+                customStyles={customStyles}
+                highlightOnHover
+                responsive
+                pagination
+                paginationPerPage={5}
+                paginationRowsPerPageOptions={[5, 10, 15]}
+                noHeader
+                className="rounded-lg overflow-hidden"
+              />
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <FiClock className="h-10 w-10 text-gray-400 mx-auto" />
+                <p className="mt-3 text-gray-500">No forms are pending</p>
+              </div>
+            )}
+          </div>
         </div>
-
-        {relevantForms.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student Name
-                  </th>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Form Type
-                  </th>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Submitted Date
-                  </th>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-              {relevantForms.map((form) => (
-  <tr key={form._id} className="hover:bg-gray-50">
-    <td className="py-4 px-4 whitespace-nowrap">
-      {form.studentId?.fullName || form.studentName || "Unknown Student"}
-    </td>
-    <td className="py-4 px-4 whitespace-nowrap">
-      {form.formType === 'newClearance' ? 'New Clearance Form' : 
-       form.formType === 'provAdmission' ? 'Provisional Admission Form' :
-       form.formType === 'personalRecord' ? 'Personal Record Form' :
-       form.formType === 'personalRecord2' ? 'Family Information Form' :
-       form.formType === 'affidavit' ? 'Rules & Regulations Affidavit' :
-       'Unknown Form'}
-    </td>
-    <td className="py-4 px-4 whitespace-nowrap">
-      {new Date(form.submittedDate).toLocaleDateString()}
-    </td>
-    <td className="py-4 px-4 whitespace-nowrap">
-      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-        Pending Review
-      </span>
-    </td>
-    <td className="py-4 px-4 whitespace-nowrap">
-      <Link 
-        to={`/staff/review-form/${form._id}?type=${form.formType}`}
-        className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
-      >
-        Review
-      </Link>
-    </td>
-  </tr>
-))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-6 bg-gray-50 rounded-lg">
-            <FiClock size={40} className="mx-auto text-gray-400" />
-            <p className="mt-2 text-gray-500">No forms are pending your approval at this time.</p>
-          </div>
-        )}
-      </div>
+      </section>
 
       {/* Pending Documents Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex items-center mb-4">
-          <FaFileAlt size={22} className="text-[#1E3A8A] mr-2" />
-          <h3 className="text-lg font-bold text-[#1E3A8A]">Documents Awaiting Your Approval</h3>
+      <section className="mb-8">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-100 flex items-center">
+            <FaFileAlt className="mr-2 text-[#1E3A8A]" />
+            <h2 className="text-lg font-bold text-gray-900">Pending Documents</h2>
+          </div>
+          <div className="p-6">
+            {pendingDocuments.length > 0 ? (
+              <DataTable
+                columns={documentsColumns}
+                data={pendingDocuments}
+                customStyles={customStyles}
+                highlightOnHover
+                responsive
+                pagination
+                paginationPerPage={5}
+                paginationRowsPerPageOptions={[5, 10, 15]}
+                noHeader
+                className="rounded-lg overflow-hidden"
+              />
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <FiClock className="h-10 w-10 text-gray-400 mx-auto" />
+                <p className="mt-3 text-gray-500">No documents are pending</p>
+              </div>
+            )}
+          </div>
         </div>
+      </section>
 
-        {pendingDocuments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student Name
-                  </th>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Document Type
-                  </th>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Uploaded Date
-                  </th>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {pendingDocuments.map((doc) => (
-                  <tr key={doc._id} className="hover:bg-gray-50">
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      {doc.owner?.fullName || "Unknown Student"}
-                    </td>
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      {doc.documentType}
-                    </td>
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      {new Date(doc.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                        Pending Review
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      <Link 
-                        to={`/staff/review-document/${doc._id}`}
-                        className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
-                      >
-                        Review
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-6 bg-gray-50 rounded-lg">
-            <FiClock size={40} className="mx-auto text-gray-400" />
-            <p className="mt-2 text-gray-500">No documents are pending your approval at this time.</p>
-          </div>
-        )}
-      </div>
-
-      {/* Recent Activity Section (if available) */}
-      {dashboardData?.pendingItems && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center mb-4">
-            <FaBell size={22} className="text-[#1E3A8A] mr-2" />
-            <h3 className="text-lg font-bold text-[#1E3A8A]">Recent Activities</h3>
-          </div>
-          
-          {dashboardData.notifications?.length > 0 ? (
-            <div className="space-y-3">
-              {dashboardData.notifications.map((notification, index) => (
-                <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-start">
-                    <div className={`
-                      p-2 rounded-full mr-3 flex-shrink-0
-                      ${notification.status === 'success' ? 'bg-green-100' : 
-                        notification.status === 'warning' ? 'bg-yellow-100' : 
-                        notification.status === 'error' ? 'bg-red-100' : 'bg-blue-100'}
-                    `}>
-                      {notification.status === 'success' ? <FaCheckCircle className="text-green-600" /> :
-                       notification.status === 'warning' ? <FiAlertTriangle className="text-yellow-600" /> :
-                       notification.status === 'error' ? <FaTimesCircle className="text-red-600" /> :
-                       <FaBell className="text-blue-600" />
-                      }
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-800">{notification.title}</h4>
-                      <p className="text-sm text-gray-600">{notification.description}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(notification.createdAt).toLocaleString()}
-                      </p>
+      {/* Notifications Section */}
+      {dashboardData?.notifications && dashboardData.notifications.length > 0 && (
+        <section>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex items-center">
+              <FaBell className="mr-2 text-[#1E3A8A]" />
+              <h2 className="text-lg font-bold text-gray-900">Notifications</h2>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                {dashboardData.notifications.map((notification, index) => (
+                  <div 
+                    key={index} 
+                    className="p-4 rounded-lg border border-gray-100 hover:shadow-sm transition duration-300"
+                  >
+                    <div className="flex items-start">
+                      <div className={`
+                        p-2 rounded-full mr-3 flex-shrink-0
+                        ${notification.status === 'success' ? 'bg-green-100' : 
+                          notification.status === 'warning' ? 'bg-yellow-100' : 
+                          notification.status === 'error' ? 'bg-red-100' : 'bg-blue-100'}
+                      `}>
+                        {notification.status === 'success' ? <FiCheckCircle className="text-green-600" /> :
+                         notification.status === 'warning' ? <FiAlertTriangle className="text-yellow-600" /> :
+                         notification.status === 'error' ? <FiXCircle className="text-red-600" /> :
+                         <FiClock className="text-blue-600" />
+                        }
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-800">{notification.title}</h4>
+                        <p className="text-sm text-gray-600">{notification.description}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(notification.createdAt).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-6 bg-gray-50 rounded-lg">
-              <FaBell size={40} className="mx-auto text-gray-400" />
-              <p className="mt-2 text-gray-500">No recent activities to display.</p>
-            </div>
-          )}
-        </div>
+          </div>
+        </section>
       )}
     </div>
   );
 };
 
-export default Dashboard;
+export default StaffDashboard;

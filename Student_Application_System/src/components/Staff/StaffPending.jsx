@@ -1,19 +1,25 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import axios from "axios";
-import api from "../../utils/api";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
-  FaSearch, 
-  FaFilter, 
-  FaFileAlt, 
-  FaClipboardList, 
-  FaEye, 
-  FaCheck, 
-  FaTimes 
+  FaUsers, 
+  FaClipboardCheck, 
+  FaRegTimesCircle, 
+  FaBell,
+  FaChevronRight,
+  FaClipboardList,
+  FaFileAlt,
+  FaSearch
 } from "react-icons/fa";
-import { MdPendingActions } from "react-icons/md";
-import { FiClock } from "react-icons/fi";
+import { 
+  FiCheckCircle, 
+  FiClock, 
+  FiXCircle, 
+  FiAlertTriangle,
+  FiRefreshCw
+} from "react-icons/fi";
+import { Link } from "react-router-dom";
+import DataTable from "react-data-table-component";
+import { useAuth } from "../../context/AuthContext";
+import api from "../../utils/api";
 
 const StaffPending = () => {
   const { user } = useAuth();
@@ -23,95 +29,68 @@ const StaffPending = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'forms', 'documents'
+  const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('all'); // 'all', 'today', 'week', 'month'
+  const [selectedFilter, setSelectedFilter] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch pending items
-  useEffect(() => {
-    const fetchPendingItems = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch pending forms
-        const formsResponse = await api.get('/clearance/forms/pending?formType=newClearance');
-        
-        // Fetch pending documents
-        const documentsResponse = await api.get('/documents/staff/approvable');
-        
-        // Process forms data - handle both object and array responses
-        let processedForms = [];
-        if (formsResponse.data) {
-          if (Array.isArray(formsResponse.data)) {
-            processedForms = formsResponse.data;
-          } else {
-            // If it's an object with form types as keys
-            Object.keys(formsResponse.data).forEach(formType => {
-              const forms = formsResponse.data[formType];
-              if (Array.isArray(forms)) {
-                processedForms = [
-                  ...processedForms,
-                  ...forms.map(form => ({
-                    ...form,
-                    type: formType
-                  }))
-                ];
-              }
-            });
-          }
+  // Fetch data with useCallback to prevent unnecessary re-renders
+  const fetchPendingItems = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [formsResponse, documentsResponse] = await Promise.all([
+        api.get('/clearance/forms/pending?formType=newClearance'),
+        api.get('/documents/staff/approvable')
+      ]);
+      
+      let processedForms = [];
+      if (formsResponse.data) {
+        if (Array.isArray(formsResponse.data)) {
+          processedForms = formsResponse.data;
+        } else {
+          Object.keys(formsResponse.data).forEach(formType => {
+            const forms = formsResponse.data[formType];
+            if (Array.isArray(forms)) {
+              processedForms = [
+                ...processedForms,
+                ...forms.map(form => ({
+                  ...form,
+                  type: formType
+                }))
+              ];
+            }
+          });
         }
-        
-        setPendingItems({
-          forms: processedForms || [],
-          documents: documentsResponse.data || []
-        });
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching pending items:', error);
-        setError('Failed to load pending items. Please try again later.');
-        setLoading(false);
       }
-    };
-
-    fetchPendingItems();
+      
+      setPendingItems({
+        forms: processedForms || [],
+        documents: documentsResponse.data || []
+      });
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching pending items:', error);
+      setError('Failed to load pending items. Please try again later.');
+      setLoading(false);
+    }
   }, []);
 
-  // Filter items based on current filter and search term
-  const getFilteredItems = () => {
-    // First apply date filter
-    const filteredByDate = {
-      forms: filterByDate(pendingItems.forms),
-      documents: filterByDate(pendingItems.documents)
-    };
-    
-    // Then apply search filter
-    if (!searchTerm) {
-      return filteredByDate;
-    }
-    
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    
-    return {
-      forms: filteredByDate.forms.filter(form => {
-        return (
-          (form.studentId?.fullName || '').toLowerCase().includes(lowerSearchTerm) ||
-          (form.studentName || '').toLowerCase().includes(lowerSearchTerm) ||
-          (form.type || '').toLowerCase().includes(lowerSearchTerm) ||
-          (form.formName || '').toLowerCase().includes(lowerSearchTerm)
-        );
-      }),
-      documents: filteredByDate.documents.filter(doc => {
-        return (
-          (doc.owner?.fullName || '').toLowerCase().includes(lowerSearchTerm) ||
-          (doc.title || '').toLowerCase().includes(lowerSearchTerm) ||
-          (doc.documentType || '').toLowerCase().includes(lowerSearchTerm)
-        );
-      })
-    };
+  // Initial data fetch
+  useEffect(() => {
+    fetchPendingItems();
+  }, [fetchPendingItems]);
+
+  // Refresh data handler
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchPendingItems();
+    setRefreshing(false);
   };
 
-  // Apply date filter
+  // Filtering methods
   const filterByDate = (items) => {
     if (selectedFilter === 'all') return items;
     
@@ -138,7 +117,31 @@ const StaffPending = () => {
     });
   };
 
-  // Get items based on active tab
+  const getFilteredItems = () => {
+    const filteredByDate = {
+      forms: filterByDate(pendingItems.forms),
+      documents: filterByDate(pendingItems.documents)
+    };
+    
+    if (!searchTerm) {
+      return filteredByDate;
+    }
+    
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    
+    return {
+      forms: filteredByDate.forms.filter(form => 
+        (form.studentId?.fullName || '').toLowerCase().includes(lowerSearchTerm) ||
+        (form.studentName || '').toLowerCase().includes(lowerSearchTerm) ||
+        (form.type || '').toLowerCase().includes(lowerSearchTerm)
+      ),
+      documents: filteredByDate.documents.filter(doc => 
+        (doc.owner?.fullName || '').toLowerCase().includes(lowerSearchTerm) ||
+        (doc.documentType || '').toLowerCase().includes(lowerSearchTerm)
+      )
+    };
+  };
+
   const getVisibleItems = () => {
     const filteredItems = getFilteredItems();
     
@@ -147,7 +150,6 @@ const StaffPending = () => {
     } else if (activeTab === 'documents') {
       return filteredItems.documents;
     } else {
-      // Return combined array for 'all' tab with type property
       return [
         ...filteredItems.forms.map(form => ({ ...form, itemType: 'form' })),
         ...filteredItems.documents.map(doc => ({ ...doc, itemType: 'document' }))
@@ -155,19 +157,18 @@ const StaffPending = () => {
     }
   };
 
-  // Format form name for display
+  // Formatting helpers
   const formatFormName = (formType) => {
-    switch (formType) {
-      case 'newClearance': return 'New Clearance Form';
-      case 'provAdmission': return 'Provisional Admission Form';
-      case 'personalRecord': return 'Personal Record Form';
-      case 'personalRecord2': return 'Family Information Form';
-      case 'affidavit': return 'Rules & Regulations Affidavit';
-      default: return formType;
-    }
+    const formNames = {
+      'newClearance': 'New Clearance Form',
+      'provAdmission': 'Provisional Admission Form',
+      'personalRecord': 'Personal Record Form',
+      'personalRecord2': 'Family Information Form',
+      'affidavit': 'Rules & Regulations Affidavit'
+    };
+    return formNames[formType] || formType;
   };
 
-  // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'Unknown';
     
@@ -175,64 +176,137 @@ const StaffPending = () => {
     const now = new Date();
     const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
     
-    if (diffInDays === 0) {
-      return 'Today';
-    } else if (diffInDays === 1) {
-      return 'Yesterday';
-    } else if (diffInDays < 7) {
-      return `${diffInDays} days ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    return date.toLocaleDateString();
   };
 
-  // Render filter button
-  const renderFilterButton = (value, label) => (
-    <button
-      className={`px-3 py-1.5 rounded text-sm font-medium ${
-        selectedFilter === value
-          ? 'bg-blue-600 text-white'
-          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-      }`}
-      onClick={() => setSelectedFilter(value)}
-    >
-      {label}
-    </button>
-  );
-
-  // Show loading state
+  // Render loading state
   if (loading) {
     return (
-      <div className="p-6 flex justify-center items-center min-h-[50vh]">
+      <div className="p-6 flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
       </div>
     );
   }
 
-  // Show error state
+  // Render error state
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-6 flex justify-center items-center min-h-screen">
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Error!</strong>
-          <span className="block sm:inline"> {error}</span>
+          <strong className="font-bold">Error! </strong>
+          <span className="block sm:inline">{error}</span>
         </div>
       </div>
     );
   }
 
+  // Prepare items and stats
   const visibleItems = getVisibleItems();
+  const totalPendingItems = visibleItems.length;
+  const pendingForms = pendingItems.forms.length;
+  const pendingDocuments = pendingItems.documents.length;
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="flex items-center mb-6">
-        <MdPendingActions size={30} className="text-yellow-600 mr-2" />
-        <h2 className="text-2xl font-bold text-[#1E3A8A]">Pending Approvals</h2>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Pending Approvals</h1>
+        <p className="text-gray-500 mt-1">Manage and review pending forms and documents</p>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+      {/* Quick Summary Cards */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Total Pending Items Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md">
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="rounded-full bg-yellow-100 p-3">
+                  <FaClipboardList className="text-yellow-700 text-xl" />
+                </div>
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">
+                  Pending
+                </span>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-500">Total Pending Items</h3>
+                <p className="text-2xl font-semibold mt-1 text-gray-900">{totalPendingItems}</p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <button 
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="text-yellow-600 hover:text-yellow-800 text-sm font-medium flex items-center"
+                >
+                  {refreshing ? (
+                    <><FiRefreshCw className="mr-1 animate-spin" /> Refreshing</>
+                  ) : (
+                    <>Refresh <FaChevronRight className="ml-1 text-xs" /></>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Pending Forms Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md">
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="rounded-full bg-blue-100 p-3">
+                  <FaClipboardList className="text-blue-700 text-xl" />
+                </div>
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                  Forms
+                </span>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-500">Pending Forms</h3>
+                <p className="text-2xl font-semibold mt-1 text-gray-900">{pendingForms}</p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <button 
+                  onClick={() => setActiveTab('forms')}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
+                >
+                  View Forms <FaChevronRight className="ml-1 text-xs" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Pending Documents Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md">
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="rounded-full bg-green-100 p-3">
+                  <FaFileAlt className="text-green-700 text-xl" />
+                </div>
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700">
+                  Documents
+                </span>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-500">Pending Documents</h3>
+                <p className="text-2xl font-semibold mt-1 text-gray-900">{pendingDocuments}</p>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <button 
+                  onClick={() => setActiveTab('documents')}
+                  className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center"
+                >
+                  View Documents <FaChevronRight className="ml-1 text-xs" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Filtering Section */}
+      <section className="mb-8 bg-white rounded-lg shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           {/* Search Input */}
           <div className="relative flex-1">
@@ -250,176 +324,293 @@ const StaffPending = () => {
           
           {/* Tabs */}
           <div className="flex items-center space-x-2">
-            <button
-              className={`px-3 py-2 rounded-md ${
-                activeTab === 'all'
-                  ? 'bg-blue-100 text-blue-700 font-medium'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={() => setActiveTab('all')}
-            >
-              All
-            </button>
-            <button
-              className={`px-3 py-2 rounded-md flex items-center ${
-                activeTab === 'forms'
-                  ? 'bg-blue-100 text-blue-700 font-medium'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={() => setActiveTab('forms')}
-            >
-              <FaClipboardList className="mr-1" />
-              Forms
-            </button>
-            <button
-              className={`px-3 py-2 rounded-md flex items-center ${
-                activeTab === 'documents'
-                  ? 'bg-blue-100 text-blue-700 font-medium'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={() => setActiveTab('documents')}
-            >
-              <FaFileAlt className="mr-1" />
-              Documents
-            </button>
+            {['all', 'forms', 'documents'].map(tab => (
+              <button
+                key={tab}
+                className={`px-3 py-2 rounded-md flex items-center ${
+                  activeTab === tab
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                onClick={() => setActiveTab(tab)}
+              >
+                {tab === 'all' && 'All'}
+                {tab === 'forms' && <><FaClipboardList className="mr-1" /> Forms</>}
+                {tab === 'documents' && <><FaFileAlt className="mr-1" /> Documents</>}
+              </button>
+            ))}
           </div>
         </div>
         
         {/* Date Filter Buttons */}
         <div className="mt-4 flex items-center">
           <div className="mr-3 flex items-center">
-            <FaFilter className="text-gray-500 mr-2" />
-            <span className="text-sm text-gray-500">Filter by:</span>
+            <FaSearch className="text-gray-500 mr-2" />
+            <span className="text-sm text-gray-500">Filter by Date:</span>
           </div>
           <div className="flex space-x-2">
-            {renderFilterButton('all', 'All Time')}
-            {renderFilterButton('today', 'Today')}
-            {renderFilterButton('week', 'This Week')}
-            {renderFilterButton('month', 'This Month')}
+            {['all', 'today', 'week', 'month'].map(filter => (
+              <button
+                key={filter}
+                className={`px-3 py-1.5 rounded text-sm font-medium ${
+                  selectedFilter === filter
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+                onClick={() => setSelectedFilter(filter)}
+              >
+                {filter === 'all' ? 'All Time' : 
+                 filter === 'today' ? 'Today' :filter === 'week' ? 'This Week' : 
+                 'This Month'}
+              </button>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Pending Items List */}
-      <div className="bg-white rounded-lg shadow-md">
+      {/* Pending Items Table */}
+      <section className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
         {visibleItems.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Title/Name
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Submitted
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {visibleItems.map((item, index) => {
-                  // Determine if this is a form or document
-                  const isForm = item.itemType === 'form' || !item.itemType;
-                  
-                  // Get appropriate data based on item type
-                  const studentName = isForm 
-                    ? (item.studentId?.fullName || item.studentName || 'Unknown Student')
-                    : (item.owner?.fullName || 'Unknown Student');
-                  
-                  const itemTitle = isForm
-                    ? formatFormName(item.type || item.formName)
-                    : (item.title || 'Untitled Document');
-                  
-                  const submittedDate = isForm
-                    ? formatDate(item.submittedDate)
-                    : formatDate(item.createdAt);
-                  
-                  const itemType = isForm
-                    ? 'Form'
-                    : (item.documentType || 'Document');
-                  
-                  const itemId = isForm
-                    ? item._id || item.id
-                    : item._id;
-                  
-                  // Determine action link
+          <DataTable
+            columns={[
+              {
+                name: "Student Name",
+                selector: row => row.studentId?.fullName || row.owner?.fullName || "Unknown",
+                sortable: true,
+                cell: row => (
+                  <div className="py-2 font-medium">
+                    {row.studentId?.fullName || row.owner?.fullName || "Unknown"}
+                  </div>
+                )
+              },
+              {
+                name: "Type",
+                selector: row => row.itemType || (row.type ? 'Form' : 'Document'),
+                sortable: true,
+                cell: row => (
+                  <div className="py-2 flex items-center">
+                    {row.itemType === 'form' || row.type ? 
+                      <FaClipboardList className="mr-2 text-blue-500" /> : 
+                      <FaFileAlt className="mr-2 text-blue-500" />
+                    }
+                    <span>
+                      {row.type ? formatFormName(row.type) : (row.documentType || 'Document')}
+                    </span>
+                  </div>
+                )
+              },
+              {
+                name: "Submitted",
+                selector: row => row.submittedDate || row.createdAt,
+                sortable: true,
+                cell: row => (
+                  <div className="py-2 text-gray-500 flex items-center">
+                    <FiClock className="mr-1" />
+                    {formatDate(row.submittedDate || row.createdAt)}
+                  </div>
+                )
+              },
+              {
+                name: "Actions",
+                cell: row => {
+                  const isForm = row.type || row.itemType === 'form';
+                  const itemId = row._id;
                   const actionLink = isForm
-                    ? `/staff/review-form/${itemId}?type=${item.type || ''}`
+                    ? `/staff/review-form/${itemId}?type=${row.type || ''}`
                     : `/staff/review-document/${itemId}`;
-                  
+
                   return (
-                    <tr key={`${index}-${itemId}`} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {studentName}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {isForm ? <FaClipboardList className="text-blue-500 mr-2" /> : <FaFileAlt className="text-blue-500 mr-2" />}
-                          <span className="text-sm text-gray-900">{itemType}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{itemTitle}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500 flex items-center">
-                          <FiClock className="mr-1 text-gray-400" />
-                          {submittedDate}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex items-center space-x-3">
-                          <Link
-                            to={actionLink}
-                            className="text-blue-600 hover:text-blue-900 flex items-center"
-                          >
-                            <FaEye className="mr-1" />
-                            View
-                          </Link>
-                          <Link
-                            to={actionLink}
-                            className="text-green-600 hover:text-green-900 flex items-center"
-                          >
-                            <FaCheck className="mr-1" />
-                            Approve
-                          </Link>
-                          <Link
-                            to={actionLink}
-                            className="text-red-600 hover:text-red-900 flex items-center"
-                          >
-                            <FaTimes className="mr-1" />
-                            Reject
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
+                    <div className="py-2 flex space-x-3">
+                      <Link
+                        to={actionLink}
+                        className="text-blue-600 hover:text-blue-800 flex items-center"
+                      >
+                        <FaEye className="mr-1" />
+                        View
+                      </Link>
+                      <Link
+                        to={actionLink}
+                        className="text-green-600 hover:text-green-800 flex items-center"
+                      >
+                        <FaCheck className="mr-1" />
+                        Approve
+                      </Link>
+                      <Link
+                        to={actionLink}
+                        className="text-red-600 hover:text-red-800 flex items-center"
+                      >
+                        <FaTimes className="mr-1" />
+                        Reject
+                      </Link>
+                    </div>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                }
+              }
+            ]}
+            data={visibleItems}
+            customStyles={{
+              headCells: {
+                style: {
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  color: '#1E3A8A',
+                  backgroundColor: '#F9FAFB',
+                  paddingLeft: '16px',
+                  paddingRight: '16px',
+                },
+              },
+              rows: {
+                style: {
+                  fontSize: '0.875rem',
+                  minHeight: '48px',
+                  '&:not(:last-of-type)': {
+                    borderBottomStyle: 'solid',
+                    borderBottomWidth: '1px',
+                    borderBottomColor: '#F3F4F6',
+                  },
+                },
+                highlightOnHoverStyle: {
+                  backgroundColor: '#F9FAFB',
+                  borderBottomColor: '#F3F4F6',
+                  outline: '1px solid #F3F4F6',
+                  borderRadius: '4px',
+                },
+              },
+              pagination: {
+                style: {
+                  color: '#1E3A8A',
+                  fontSize: '0.875rem',
+                  minHeight: '56px',
+                  backgroundColor: '#FFFFFF',
+                  borderTopStyle: 'solid',
+                  borderTopWidth: '1px',
+                  borderTopColor: '#F3F4F6',
+                },
+                pageButtonsStyle: {
+                  borderRadius: '50%',
+                  height: '32px',
+                  width: '32px',
+                  padding: '8px',
+                  margin: '0px 4px',
+                  cursor: 'pointer',
+                  transition: '0.4s',
+                  color: '#1E3A8A',
+                  fill: '#1E3A8A',
+                  backgroundColor: 'transparent',
+                  '&:disabled': {
+                    cursor: 'unset',
+                    color: '#9CA3AF',
+                    fill: '#9CA3AF',
+                  },
+                  '&:hover:not(:disabled)': {
+                    backgroundColor: '#F3F4F6',
+                  },
+                  '&:focus': {
+                    outline: 'none',
+                    backgroundColor: '#F3F4F6',
+                  },
+                },
+              },
+            }}
+            highlightOnHover
+            responsive
+            pagination
+            paginationPerPage={10}
+            paginationRowsPerPageOptions={[5, 10, 15, 20]}
+            noHeader
+            className="rounded-lg overflow-hidden"
+            emptyText="No pending items found"
+          />
         ) : (
-          <div className="py-8 text-center">
-            <FiClock className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No pending items</h3>
-            <p className="mt-1 text-sm text-gray-500">There are no items waiting for your approval at this time.</p>
+          <div className="py-12 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="bg-blue-100 rounded-full p-4">
+                <FiClock className="h-12 w-12 text-blue-600" />
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              No Pending Items
+            </h3>
+            <p className="text-gray-500 mb-6">
+              There are no items waiting for your approval at this time.
+            </p>
+            <Link
+              to="/staff/dashboard"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+            >
+              Back to Dashboard
+              <FaChevronRight className="ml-2" />
+            </Link>
           </div>
         )}
-      </div>
+      </section>
+
+      {/* Notifications Section */}
+      {visibleItems.length > 0 && (
+        <section className="mt-8 bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center mb-4">
+            <FaBell className="mr-2 text-purple-600" />
+            <h2 className="text-lg font-bold text-gray-900">Notifications</h2>
+          </div>
+          
+          <div className="space-y-4">
+            {[
+              {
+                type: 'deadline',
+                message: 'Some pending items are approaching approval deadline',
+                priority: 'high'
+              },
+              {
+                type: 'system',
+                message: 'Review process may take longer due to high volume',
+                priority: 'medium'
+              }
+            ].map((notification, index) => (
+              <div 
+                key={index} 
+                className="p-4 rounded-lg border border-gray-100 hover:shadow-sm transition duration-300"
+              >
+                <div className="flex items-start">
+                  <div className={`
+                    flex-shrink-0 rounded-full p-2 mr-3 ${
+                      notification.priority === 'high' 
+                        ? 'bg-red-100' 
+                        : notification.priority === 'medium'
+                          ? 'bg-yellow-100'
+                          : 'bg-green-100'
+                    }`}>
+                    {notification.type === 'deadline' && (
+                      <FiAlertTriangle className={`${
+                        notification.priority === 'high' 
+                          ? 'text-red-600' 
+                          : notification.priority === 'medium'
+                            ? 'text-yellow-600'
+                            : 'text-green-600'
+                      }`} />
+                    )}
+                    {notification.type === 'system' && (
+                      <FiClock className={`${
+                        notification.priority === 'high' 
+                          ? 'text-red-600' 
+                          : notification.priority === 'medium'
+                            ? 'text-yellow-600'
+                            : 'text-green-600'
+                      }`} />
+                    )}
+                  </div>
+                  
+                  <div>
+                    <p className="font-medium text-gray-900">{notification.message}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {new Date().toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

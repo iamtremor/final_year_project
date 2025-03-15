@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 const blockchainService = require('../services/blockchainService');
-
+const Notification = require('../models/Notification');
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, '..', config.storage.documentsPath);
 if (!fs.existsSync(uploadDir)) {
@@ -523,12 +523,13 @@ const deleteDocument = async (req, res) => {
 // };
 
 // without department verification
+// More flexible staff document approval function
 const canStaffApproveDocument = async (staff, document) => {
   // If the document has a specific approverRole field, check against that
   if (document.approverRole) {
     switch (document.approverRole) {
       case 'schoolOfficer':
-        // School officer can now approve ANY department's documents
+        // STRICTLY School Officer can approve
         return staff.department === 'School Officer';
       case 'deputyRegistrar':
         return staff.department === 'Registrar';
@@ -551,7 +552,7 @@ const canStaffApproveDocument = async (staff, document) => {
     case 'JAMB Result':
     case 'JAMB Admission':
     case 'WAEC':
-      // School officer can approve these from ANY department
+      // ONLY School Officer can approve these
       return staff.department === 'School Officer';
     case 'Admission Letter':
       return staff.department === 'Registrar';

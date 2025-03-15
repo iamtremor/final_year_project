@@ -18,7 +18,7 @@ async function checkStaffAccounts() {
     
     console.log(`Found ${staffAccounts.length} staff accounts:`);
     staffAccounts.forEach(account => {
-      console.log(`- ${account.fullName} (${account.staffId}), Email: ${account.email}`);
+      console.log(`- ${account.fullName} (${account.staffId}), Email: ${account.email}, Department, ${account.department}`);
     });
     
     // Get one example account with password field (don't log the actual hash)
