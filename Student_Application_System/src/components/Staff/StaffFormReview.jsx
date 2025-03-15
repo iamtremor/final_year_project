@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import axios from "axios";
 import api from "../../utils/api";
 import { 
   FaArrowLeft, 
@@ -47,6 +46,7 @@ const FormReviewPage = () => {
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const typeParam = queryParams.get('type') || 'newClearance';
+    console.log("Form type from URL:", typeParam);
     setFormType(typeParam);
     
     // Check if this is just for viewing (already approved/rejected)
@@ -55,38 +55,44 @@ const FormReviewPage = () => {
   }, [location.search, location.pathname]);
 
   // Fetch form data
-  useEffect(() => {
-    const fetchFormData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch the specific form by ID
-        const response = await api.get(`/api/clearance/forms/${formId}?formType=${formType}`);
-        setForm(response.data);
-
-        
-        // Fetch additional student information if available
-        if (response.data.studentId?._id) {
-          try {
-            const studentResponse = await api.get(`/api/users/profile/${response.data.studentId._id}`);
-            setStudentInfo(studentResponse.data);
-          } catch (studentError) {
-            console.error('Error fetching student details:', studentError);
-          }
+  // When fetching the form data
+useEffect(() => {
+  const fetchFormData = async () => {
+    try {
+      setLoading(true);
+      console.log(`Fetching form data for ID: ${formId}, Type: ${formType}`);
+      
+      // Fetch the specific form by ID
+      const response = await api.get(`/api/clearance/forms/${formId}?formType=${formType}`);
+      console.log("Form data response:", response.data);
+      setForm(response.data);
+      
+      // If studentId is just a string (not populated), fetch student details separately
+      if (response.data.studentId && typeof response.data.studentId === 'string') {
+        try {
+          const studentResponse = await api.get(`/api/users/profile/${response.data.studentId}`);
+          console.log("Student info response:", studentResponse.data);
+          setStudentInfo(studentResponse.data);
+        } catch (studentError) {
+          console.error('Error fetching student details:', studentError);
         }
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching form data:', error);
-        setError('Failed to load form data. Please try again later.');
-        setLoading(false);
+      } else if (response.data.studentId && typeof response.data.studentId === 'object') {
+        // If studentId is already populated, use it directly
+        setStudentInfo(response.data.studentId);
       }
-    };
-
-    if (formId && formType) {
-      fetchFormData();
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching form data:', error);
+      setError('Failed to load form data. Please try again later.');
+      setLoading(false);
     }
-  }, [formId, formType]);
+  };
+
+  if (formId && formType) {
+    fetchFormData();
+  }
+}, [formId, formType]);
 
   // Determine which approval type this staff member can perform
   const getApprovalType = () => {
@@ -151,13 +157,16 @@ const FormReviewPage = () => {
         throw new Error('You do not have permission to approve this form');
       }
       
+      console.log(`Approving form: ${formId}, type: ${formType}, approvalType: ${approvalType}`);
+      
       // Submit form approval
-      await axios.post(`/api/clearance/forms/${formId}/approve`, {
+      const response = await api.post(`/api/clearance/forms/${formId}/approve`, {
         formType,
         approvalType,
         comments
       });
       
+      console.log("Approval response:", response.data);
       setSuccessMessage('Form approved successfully!');
       setSuccess(true);
       
@@ -189,13 +198,16 @@ const FormReviewPage = () => {
         throw new Error('You do not have permission to reject this form');
       }
       
+      console.log(`Rejecting form: ${formId}, type: ${formType}, approvalType: ${approvalType}`);
+      
       // Submit form rejection
-      await axios.post(`/api/clearance/forms/${formId}/reject`, {
+      const response = await api.post(`/api/clearance/forms/${formId}/reject`, {
         formType,
         approvalType,
         comments
       });
       
+      console.log("Rejection response:", response.data);
       setSuccessMessage('Form rejected successfully!');
       setSuccess(true);
       
@@ -891,202 +903,203 @@ const FormReviewPage = () => {
   // Find which approval action this staff can take
   const approvalType = getApprovalType();
   const formTitle = formType === 'newClearance' ? 'New Clearance Form' :
-                    formType === 'provAdmission' ? 'Provisional Admission Form' :
-                    formType === 'personalRecord' ? 'Personal Record Form' :
-                    formType === 'personalRecord2' ? 'Family Information Form' :
-                    formType === 'affidavit' ? 'Rules & Regulations Affidavit' :
-                    'Student Form';
-                    return (
-                        <div className="p-6 bg-gray-50 min-h-screen">
-                          {/* Header */}
-                          <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center">
-                              <FaFileAlt size={24} className="text-[#1E3A8A] mr-2" />
-                              <h2 className="text-2xl font-bold text-[#1E3A8A]">
-                                {isViewOnly ? 'View' : 'Review'} {formTitle}
-                              </h2>
-                            </div>
-                            <button 
-                              onClick={() => navigate(-1)} 
-                              className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded flex items-center"
-                            >
-                              <FaArrowLeft className="mr-2" />
-                              Back
-                            </button>
-                          </div>
-                    
-                          {/* Form approval status panel */}
-                          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 pb-4 border-b">
-                              <div>
-                                <h3 className="text-xl font-semibold text-gray-800">
-                                  {formTitle}
-                                </h3>
-                                <p className="text-gray-500 text-sm mt-1">
-                                  Submitted by {form?.studentName || form?.fullName || 'Student'} on {form ? new Date(form.submittedDate).toLocaleString() : ''}
-                                </p>
-                              </div>
-                              
-                              <div className="mt-4 md:mt-0">
-                                {formType === 'newClearance' && (
-                                  <div className="flex flex-col items-end space-y-2">
-                                    <div className="flex items-center">
-                                      <span className="text-sm mr-2">Deputy Registrar:</span>
-                                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                        form?.deputyRegistrarApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                      }`}>
-                                        {form?.deputyRegistrarApproved ? 'Approved' : 'Pending'}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center">
-                                      <span className="text-sm mr-2">School Officer:</span>
-                                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                        form?.schoolOfficerApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                      }`}>
-                                        {form?.schoolOfficerApproved ? 'Approved' : 'Pending'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {(formType !== 'newClearance' && formType !== 'provAdmission') && (
-                                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                    form?.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                    {form?.approved ? 'Approved' : 'Pending Approval'}
-                                  </span>
-                                )}
-                                
-                                {(formType === 'provAdmission') && (
-                                  <div className="flex items-center">
-                                    <span className="text-sm mr-2">Overall Status:</span>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                      form?.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                      {form?.approved ? 'All Approvals Complete' : 'Pending Approvals'}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                    
-                            {/* Form content */}
-                            <div>
-                              {renderFormContent()}
-                            </div>
-                          </div>
-                    
-                          {/* Approval actions - only show if not in view-only mode and staff can approve */}
-                          {approvalType && !isViewOnly && (
-                            <div className="bg-white rounded-lg shadow-md p-6">
-                              <h3 className="text-lg font-semibold mb-4">Approval Action</h3>
-                              
-                              <div className="bg-blue-50 p-4 rounded-md mb-6 border border-blue-100">
-                                <div className="flex items-start">
-                                  <FiInfo className="text-blue-500 mr-2 mt-1" />
-                                  <div>
-                                    <p className="font-medium text-blue-800">Approval Information</p>
-                                    <p className="text-sm text-blue-700 mt-1">
-                                      {formType === 'newClearance' && approvalType === 'deputyRegistrar' && 
-                                        "As a Deputy Registrar, your approval is required to verify the student's initial clearance form before School Officer review."
-                                      }
-                                      {formType === 'newClearance' && approvalType === 'schoolOfficer' && 
-                                        "As a School Officer, your approval is required to complete the clearance process after the Deputy Registrar's verification."
-                                      }
-                                      {formType === 'provAdmission' && 
-                                        `You're reviewing this form as the ${formatStaffRole(approvalType)}. Your approval is part of the multi-step provisional admission verification process.`
-                                      }
-                                      {(formType === 'personalRecord' || formType === 'personalRecord2' || formType === 'affidavit') && 
-                                        "Your approval will validate this form, allowing the student to proceed with their enrollment."
-                                      }
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="mb-4">
-                                <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-2">
-                                  Comments {approvalType && <span className="text-red-500">*</span>}
-                                  <span className="text-gray-500 text-xs ml-1">(Required for rejection, Optional for approval)</span>
-                                </label>
-                                <textarea
-                                  id="comments"
-                                  rows="3"
-                                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="Enter any comments about your decision..."
-                                  value={comments}
-                                  onChange={(e) => setComments(e.target.value)}
-                                />
-                              </div>
-                              
-                              <div className="flex flex-col sm:flex-row gap-3 justify-end">
-                                <button
-                                  onClick={handleReject}
-                                  disabled={submitting}
-                                  className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded flex items-center justify-center"
-                                >
-                                  {submitting ? (
-                                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                                  ) : (
-                                    <>
-                                      <FaTimesCircle className="mr-2" />
-                                      Reject Form
-                                    </>
-                                  )}
-                                </button>
-                                
-                                <button
-                                  onClick={handleApprove}
-                                  disabled={submitting}
-                                  className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center"
-                                >
-                                  {submitting ? (
-                                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                                  ) : (
-                                    <>
-                                      <FaCheckCircle className="mr-2" />
-                                      Approve Form
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Staff notes section - shows only in view mode for already approved or rejected forms */}
-                          {isViewOnly && form && (form.comments || form.feedback) && (
-                            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-                              <h3 className="text-lg font-semibold mb-4">
-                                {form.status === 'rejected' ? 'Rejection Reason' : 'Approval Notes'}
-                              </h3>
-                              
-                              <div className={`p-4 rounded-md ${
-                                form.status === 'rejected' ? 'bg-red-50 border border-red-100' : 'bg-green-50 border border-green-100'
-                              }`}>
-                                <div className="flex items-start">
-                                  {form.status === 'rejected' ? (
-                                    <FaTimesCircle className="text-red-500 mr-2 mt-1" />
-                                  ) : (
-                                    <FaCheckCircle className="text-green-500 mr-2 mt-1" />
-                                  )}
-                                  <div>
-                                    <p className={`font-medium ${form.status === 'rejected' ? 'text-red-800' : 'text-green-800'}`}>
-                                      {form.status === 'rejected' ? 'This form was rejected' : 'This form was approved'}
-                                    </p>
-                                    <p className={`mt-1 ${form.status === 'rejected' ? 'text-red-700' : 'text-green-700'}`}>
-                                      {form.comments || form.feedback || 'No comment provided'}
-                                    </p>
-                                    <p className="text-sm text-gray-500 mt-2">
-                                      {form.reviewedBy ? `Reviewed by: ${form.reviewedBy.fullName || 'Staff Member'}` : ''}
-                                      {form.reviewDate ? ` on ${new Date(form.reviewDate).toLocaleString()}` : ''}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    };
-                    
-                    export default FormReviewPage;
+                   formType === 'provAdmission' ? 'Provisional Admission Form' :
+                   formType === 'personalRecord' ? 'Personal Record Form' :
+                   formType === 'personalRecord2' ? 'Family Information Form' :
+                   formType === 'affidavit' ? 'Rules & Regulations Affidavit' :
+                   'Student Form';
+
+  return (
+    <div className="p-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <FaFileAlt size={24} className="text-[#1E3A8A] mr-2" />
+          <h2 className="text-2xl font-bold text-[#1E3A8A]">
+            {isViewOnly ? 'View' : 'Review'} {formTitle}
+          </h2>
+        </div>
+        <button 
+          onClick={() => navigate(-1)} 
+          className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded flex items-center"
+        >
+          <FaArrowLeft className="mr-2" />
+          Back
+        </button>
+      </div>
+
+      {/* Form approval status panel */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 pb-4 border-b">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-800">
+              {formTitle}
+            </h3>
+            <p className="text-gray-500 text-sm mt-1">
+              Submitted by {form?.studentName || form?.fullName || 'Student'} on {form ? new Date(form.submittedDate).toLocaleString() : ''}
+            </p>
+          </div>
+          
+          <div className="mt-4 md:mt-0">
+            {formType === 'newClearance' && (
+              <div className="flex flex-col items-end space-y-2">
+                <div className="flex items-center">
+                  <span className="text-sm mr-2">Deputy Registrar:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                    form?.deputyRegistrarApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {form?.deputyRegistrarApproved ? 'Approved' : 'Pending'}
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <span className="text-sm mr-2">School Officer:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                    form?.schoolOfficerApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {form?.schoolOfficerApproved ? 'Approved' : 'Pending'}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {(formType !== 'newClearance' && formType !== 'provAdmission') && (
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                form?.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+              }`}>
+                {form?.approved ? 'Approved' : 'Pending Approval'}
+              </span>
+            )}
+            
+            {(formType === 'provAdmission') && (
+              <div className="flex items-center">
+                <span className="text-sm mr-2">Overall Status:</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  form?.approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {form?.approved ? 'All Approvals Complete' : 'Pending Approvals'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Form content */}
+        <div>
+          {renderFormContent()}
+        </div>
+      </div>
+
+      {/* Approval actions - only show if not in view-only mode and staff can approve */}
+      {approvalType && !isViewOnly && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold mb-4">Approval Action</h3>
+          
+          <div className="bg-blue-50 p-4 rounded-md mb-6 border border-blue-100">
+            <div className="flex items-start">
+              <FiInfo className="text-blue-500 mr-2 mt-1" />
+              <div>
+                <p className="font-medium text-blue-800">Approval Information</p>
+                <p className="text-sm text-blue-700 mt-1">
+                  {formType === 'newClearance' && approvalType === 'deputyRegistrar' && 
+                    "As a Deputy Registrar, your approval is required to verify the student's initial clearance form before School Officer review."
+                  }
+                  {formType === 'newClearance' && approvalType === 'schoolOfficer' && 
+                    "As a School Officer, your approval is required to complete the clearance process after the Deputy Registrar's verification."
+                  }
+                  {formType === 'provAdmission' && 
+                    `You're reviewing this form as the ${formatStaffRole(approvalType)}. Your approval is part of the multi-step provisional admission verification process.`
+                  }
+                  {(formType === 'personalRecord' || formType === 'personalRecord2' || formType === 'affidavit') && 
+                    "Your approval will validate this form, allowing the student to proceed with their enrollment."
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mb-4">
+            <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-2">
+              Comments {approvalType && <span className="text-red-500">*</span>}
+              <span className="text-gray-500 text-xs ml-1">(Required for rejection, Optional for approval)</span>
+            </label>
+            <textarea
+              id="comments"
+              rows="3"
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter any comments about your decision..."
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3 justify-end">
+            <button
+              onClick={handleReject}
+              disabled={submitting}
+              className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded flex items-center justify-center"
+            >
+              {submitting ? (
+                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+              ) : (
+                <>
+                  <FaTimesCircle className="mr-2" />
+                  Reject Form
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={handleApprove}
+              disabled={submitting}
+              className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center"
+            >
+              {submitting ? (
+                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+              ) : (
+                <>
+                  <FaCheckCircle className="mr-2" />
+                  Approve Form
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Staff notes section - shows only in view mode for already approved or rejected forms */}
+      {isViewOnly && form && (form.comments || form.feedback) && (
+        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+          <h3 className="text-lg font-semibold mb-4">
+            {form.status === 'rejected' ? 'Rejection Reason' : 'Approval Notes'}
+          </h3>
+          
+          <div className={`p-4 rounded-md ${
+            form.status === 'rejected' ? 'bg-red-50 border border-red-100' : 'bg-green-50 border border-green-100'
+          }`}>
+            <div className="flex items-start">
+              {form.status === 'rejected' ? (
+                <FaTimesCircle className="text-red-500 mr-2 mt-1" />
+              ) : (
+                <FaCheckCircle className="text-green-500 mr-2 mt-1" />
+              )}
+              <div>
+                <p className={`font-medium ${form.status === 'rejected' ? 'text-red-800' : 'text-green-800'}`}>
+                  {form.status === 'rejected' ? 'This form was rejected' : 'This form was approved'}
+                </p>
+                <p className={`mt-1 ${form.status === 'rejected' ? 'text-red-700' : 'text-green-700'}`}>
+                  {form.comments || form.feedback || 'No comment provided'}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  {form.reviewedBy ? `Reviewed by: ${form.reviewedBy.fullName || 'Staff Member'}` : ''}
+                  {form.reviewDate ? ` on ${new Date(form.reviewDate).toLocaleString()}` : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default FormReviewPage;
