@@ -1,7 +1,7 @@
 // Save this as backend/scripts/testBlockchainConnection.js
 
-const blockchainService = require('../services/blockchainService');
-const config = require('../config');
+const blockchainService = require('../../services/blockchainService');
+const config = require('../../config');
 
 async function testBlockchainConnection() {
   console.log('Testing blockchain connection...');

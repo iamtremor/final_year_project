@@ -341,29 +341,42 @@ const loginStudent = async (req, res) => {
 // @access  Public
 const loginStaff = async (req, res) => {
   try {
+    console.log('Login request body:', req.body);
     const { staffId, password } = req.body;
     
     // Validate required fields
     if (!staffId || !password) {
+      console.log('Login failed: Missing required fields');
       return res.status(400).json({ message: 'All fields are required' });
     }
     
     // Find staff by staff ID
+    console.log('Looking for staff with ID:', staffId);
     const user = await User.findOne({ staffId, role: 'staff' });
+    console.log('User found?', !!user);
+    
     if (!user) {
+      console.log('Login failed: User not found');
       return res.status(401).json({ message: 'Invalid credentials' });
     }
     
     // Check if password matches
+    console.log('Checking password for user:', user.fullName);
     const isMatch = await user.matchPassword(password);
+    console.log('Password match?', isMatch);
+    
     if (!isMatch) {
+      console.log('Login failed: Password mismatch');
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+    
+    // Log success
+    console.log('Login successful for user:', user.fullName);
     
     // Generate JWT token
     const token = generateToken(user._id, user.role);
     
-    // Return user data and token with new fields
+    // Return user data and token
     res.json({
       token,
       user: {
@@ -383,7 +396,6 @@ const loginStaff = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
 // @desc    Login admin
 // @route   POST /api/auth/admin/login
 // @access  Public

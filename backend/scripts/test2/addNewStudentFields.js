@@ -1,8 +1,8 @@
 // Save as backend/scripts/addNewStudentFields.js
 
 const mongoose = require('mongoose');
-const User = require('../models/User');
-const config = require('../config');
+const User = require('../../models/User');
+const config = require('../../config');
 
 async function addNewFieldsToStudents() {
   try {

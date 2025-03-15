@@ -3,8 +3,8 @@
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const User = require('../models/User');
-const config = require('../config');
+const User = require('../../models/User');
+const config = require('../../config');
 
 // Staff accounts to create
 const staffAccounts = [

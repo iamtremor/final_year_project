@@ -1,8 +1,8 @@
 // Save this as backend/scripts/updateStudentToSuccess.js
 
 const mongoose = require('mongoose');
-const config = require('../config');
-const User = require('../models/User');
+const config = require('../../config');
+const User = require('../../models/User');
 
 async function updateOneStudentToSuccess() {
   try {
