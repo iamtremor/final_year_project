@@ -10,7 +10,7 @@ import {
 } from "react-icons/fi";
 import { useAuth } from "../../../../context/AuthContext";
 import toast, { Toaster } from "react-hot-toast";
-import axios from "axios";
+import api from "../../../../utils/api";
 
 const Profile = () => {
   const { user } = useAuth();
@@ -46,7 +46,7 @@ const Profile = () => {
         setIsLoading(true);
         
         // Get all documents for the student
-        const response = await axios.get('/api/documents/student');
+        const response = await api.get('/documents/student');
         const docs = response.data;
         setDocuments(docs);
         
@@ -56,7 +56,7 @@ const Profile = () => {
         const rejected = docs.filter(doc => doc.status === 'rejected').length;
         
         // Get blockchain verified documents
-        const blockchainResponse = await axios.get(`/api/blockchain/student-documents/${user.applicationId}`);
+        const blockchainResponse = await api.get(`/blockchain/student-documents/${user.applicationId}`);
         const blockchainDocs = blockchainResponse.data.documents || [];
         setBlockchainDocuments(blockchainDocs);
         
@@ -70,8 +70,8 @@ const Profile = () => {
         
         // Check deadline
         if (user?.applicationId) {
-          const deadlineResponse = await axios.get(
-            `/api/blockchain/applications/within-deadline/${user.applicationId}`
+          const deadlineResponse = await api.get(
+            `/blockchain/applications/within-deadline/${user.applicationId}`
           );
           setIsWithinDeadline(deadlineResponse.data.isWithinDeadline);
         }
@@ -99,7 +99,7 @@ const Profile = () => {
       setLoading(true);
       
       // In a real implementation, you would call your API:
-      // const response = await axios.get('/api/users/profile', {
+      // const response = await api.get('/users/profile', {
       //   headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       // });
       // setProfile(response.data);

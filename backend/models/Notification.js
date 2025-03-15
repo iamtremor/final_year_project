@@ -29,7 +29,9 @@ const NotificationSchema = new mongoose.Schema({
       'document_deletion',
       'deadline_reminder',
       'announcement',
-      'general'
+      'general',
+      'form_approval',  // Add this line
+      'form_submission'  // Make sure this is also included
     ],
     default: 'general'
   },

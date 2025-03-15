@@ -19,7 +19,7 @@ const Landingpage = () => {
       {/* Header */}
       <div className="max-w-5xl mx-auto text-center mt-16 mb-12">
         <h1 className="text-3xl md:text-4xl font-bold text-[#1E3A8A]">
-          Welcome to the Enrollment System
+          Welcome to the Student Application System
         </h1>
         <p className="mt-4 text-gray-600 text-lg">
           Choose your role to log in and access your personalized dashboard
@@ -77,7 +77,7 @@ const Landingpage = () => {
                 </li>
                 <li className="flex items-start">
                   <FaChevronRight className="flex-shrink-0 h-4 w-4 text-gray-500 mt-1" />
-                  <span className="ml-2 text-gray-600">Manage enrollment process</span>
+                  <span className="ml-2 text-gray-600">Manage application process</span>
                 </li>
                 <li className="flex items-start">
                   <FaChevronRight className="flex-shrink-0 h-4 w-4 text-gray-500 mt-1" />
@@ -129,9 +129,7 @@ const Landingpage = () => {
 
       {/* Footer */}
       <div className="max-w-5xl mx-auto mt-16 text-center">
-        <p className="text-sm text-gray-500">
-          Secured by blockchain technology | © {new Date().getFullYear()} Enrollment System
-        </p>
+        
       </div>
     </div>
   );

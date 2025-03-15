@@ -66,6 +66,7 @@ const DocumentSchema = new mongoose.Schema({
     type: Date
   },
   // Add this to the existing Document schema
+// To this (setting a default value):
 documentCategory: {
   type: String,
   enum: [
@@ -79,7 +80,9 @@ documentCategory: {
     'Passport',
     'Transcript'
   ],
-  required: true
+  default: function() {
+    return this.documentType;
+  }
 },
 approverRole: {
   type: String,

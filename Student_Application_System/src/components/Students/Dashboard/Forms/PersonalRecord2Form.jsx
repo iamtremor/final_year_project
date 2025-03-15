@@ -242,8 +242,11 @@ const PersonalRecord2Form = () => {
     <div>
       <Toaster position="top-right" />
       
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-[#1E3A8A]">Family Information Record</h2>
+      <div className="p-6">
+        <div className="flex items-center mb-6">
+                <FiFileText className="text-2xl text-[#1E3A8A] mr-2" />
+                <h2 className="text-xl font-bold text-[#1E3A8A]">Family Information Record</h2>
+        </div>
         <p className="mt-1 text-sm text-gray-600">
           Please provide information about your family background and educational history.
         </p>

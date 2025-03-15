@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import axios from "axios";
+import api from "../../utils/api";
 import { 
   FaSearch, 
   FaFilter, 
@@ -34,11 +34,11 @@ const StaffApproved = () => {
         
         // Get documents approved by this staff member
         // This endpoint would need to be created on the backend
-        const approvedDocsResponse = await axios.get('/api/documents/approved-by-me');
+        const approvedDocsResponse = await api.get('/documents/approved-by-me');
         
         // Get forms approved by this staff member
         // This endpoint would need to be created on the backend
-        const approvedFormsResponse = await axios.get('/api/clearance/forms/approved-by-me');
+        const approvedFormsResponse = await api.get('/clearance/forms/approved-by-me');
         
         setApprovedItems({
           forms: approvedFormsResponse.data || [],
@@ -399,7 +399,7 @@ const StaffApproved = () => {
                           
                           {!isForm && (
                             <button
-                              onClick={() => window.location.href = `/api/documents/download/${itemId}`}
+                              onClick={() => window.location.href = `/documents/download/${itemId}`}
                               className="text-gray-600 hover:text-gray-900 flex items-center"
                             >
                               <FaDownload className="mr-1" />

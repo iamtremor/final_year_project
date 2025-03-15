@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const NewClearanceFormSchema = new mongoose.Schema({
   studentId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -19,6 +18,10 @@ const NewClearanceFormSchema = new mongoose.Schema({
   changeOfInstitution: Boolean,
   uploadOLevel: Boolean,
   jambAdmissionLetter: Boolean,
+  submitted: {
+    type: Boolean,
+    default: true  // Default to true when a form is created
+  },
   schoolOfficerApproved: {
     type: Boolean,
     default: false

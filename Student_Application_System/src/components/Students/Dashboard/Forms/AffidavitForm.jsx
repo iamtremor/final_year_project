@@ -190,8 +190,11 @@ const AffidavitForm = () => {
     <div>
       <Toaster position="top-right" />
       
-      <div className="mb-6">
+      <div className="p-6">
+        <div className="flex items-center mb-6">
+                <FiFileText className="text-2xl text-[#1E3A8A] mr-2" />
         <h2 className="text-xl font-bold text-[#1E3A8A]">Rules and Regulations Affidavit</h2>
+        </div>
         <p className="mt-1 text-sm text-gray-600">
           Please read the university rules and regulations carefully before signing this affidavit.
         </p>

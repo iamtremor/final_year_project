@@ -95,13 +95,13 @@ function App() {
               element={<Layout role="Student" />}
             >
               <Route path="dashboard" element={<StudentDashboard />} />
-              <Route path="approved" element={<Approved />} />
-              <Route path="forms" element={<FormsStatus />} />
+              <Route path="approved" element={<Approved />} />    
               <Route path="forms/new-clearance" element={<NewClearanceForm />} />
               <Route path="forms/prov-admission" element={<ProvAdmissionForm />} />
               <Route path="forms/personal-record" element={<PersonalRecordForm />} />
               <Route path="forms/personal-record2" element={<PersonalRecord2Form />} />
               <Route path="forms/affidavit" element={<AffidavitForm />} />
+              <Route path="forms/form-status" element={<FormsStatus />} />
               <Route path="my-documents" element={<Documents />} />
               <Route path="notifications" element={<Notification />} />
               <Route path="pending" element={<Pending />} />

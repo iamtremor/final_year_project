@@ -4,7 +4,7 @@ import { FiFileText, FiCheckCircle, FiClock, FiShield } from "react-icons/fi";
 import { IoIosArrowForward } from "react-icons/io";
 import { MdOutlineSpaceDashboard } from "react-icons/md";
 import Documents from "./Documents";
-import axios from "axios";
+import api from "../../../../utils/api";
 import { useAuth } from "../../../../context/AuthContext";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -27,7 +27,7 @@ const Dashboard = () => {
         setIsLoading(true);
         
         // Get all documents for the student
-        const response = await axios.get('/api/documents/student');
+        const response = await api.get('/documents/student');
         const docs = response.data;
         setDocuments(docs);
         
@@ -36,7 +36,7 @@ const Dashboard = () => {
         const pending = docs.filter(doc => doc.status === 'pending').length;
         
         // Get blockchain verified documents
-        const blockchainResponse = await axios.get(`/api/blockchain/student-documents/${user.applicationId}`);
+        const blockchainResponse = await api.get(`/blockchain/student-documents/${user.applicationId}`);
         const blockchainDocs = blockchainResponse.data.documents || [];
         setBlockchainDocuments(blockchainDocs);
         
@@ -49,8 +49,8 @@ const Dashboard = () => {
         
         // Check deadline
         if (user?.applicationId) {
-          const deadlineResponse = await axios.get(
-            `/api/blockchain/applications/within-deadline/${user.applicationId}`
+          const deadlineResponse = await api.get(
+            `/blockchain/applications/within-deadline/${user.applicationId}`
           );
           setIsWithinDeadline(deadlineResponse.data.isWithinDeadline);
         }

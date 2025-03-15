@@ -140,7 +140,6 @@ const ProvAdmissionForm = () => {
       return (
         <div className="mt-4 bg-blue-50 p-4 rounded-md">
           <p className="text-sm text-blue-700">
-            <FiInfo className="inline mr-2" />
             This form requires approval from multiple officers. Status will be updated here after submission.
           </p>
         </div>
@@ -243,8 +242,11 @@ const ProvAdmissionForm = () => {
     <div>
       <Toaster position="top-right" />
       
-      <div className="mb-6">
+      <div className="p-6">
+        <div className="flex items-center mb-6">
+                <FiFileText className="text-2xl text-[#1E3A8A] mr-2" />
         <h2 className="text-xl font-bold text-[#1E3A8A]">Provisional Admission Form</h2>
+        </div>
         <p className="mt-1 text-sm text-gray-600">
           This form confirms your provisional admission to the program and must be approved by multiple departments.
         </p>
