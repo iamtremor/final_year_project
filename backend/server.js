@@ -20,6 +20,7 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/documents', require('./routes/documentRoutes'));
 app.use('/api/blockchain', require('./routes/blockchainRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes')); // Add this line
+app.use('/api/dashboard', require('./routes/dashboardRoutes'))
 app.use('/api/clearance', require('./routes/clearanceRoutes'));
 // Default route
 app.get('/', (req, res) => {
