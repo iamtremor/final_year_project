@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import axios from "axios";
+import api from "../../utils/api";
 import { 
   FaArrowLeft, 
   FaCheckCircle, 
@@ -60,13 +61,14 @@ const FormReviewPage = () => {
         setLoading(true);
         
         // Fetch the specific form by ID
-        const response = await axios.get(`/api/clearance/forms/${formId}?formType=${formType}`);
+        const response = await api.get(`/api/clearance/forms/${formId}?formType=${formType}`);
         setForm(response.data);
+
         
         // Fetch additional student information if available
         if (response.data.studentId?._id) {
           try {
-            const studentResponse = await axios.get(`/api/users/profile/${response.data.studentId._id}`);
+            const studentResponse = await api.get(`/api/users/profile/${response.data.studentId._id}`);
             setStudentInfo(studentResponse.data);
           } catch (studentError) {
             console.error('Error fetching student details:', studentError);

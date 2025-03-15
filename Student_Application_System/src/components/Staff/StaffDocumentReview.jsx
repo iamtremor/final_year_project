@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import axios from "axios";
+import api from "../../utils/api";
 import { 
   FaArrowLeft, 
   FaCheckCircle, 
@@ -28,45 +28,9 @@ const DocumentReviewPage = () => {
   const [viewMode, setViewMode] = useState('preview'); // 'preview' or 'info'
 
   // Fetch document data
-  useEffect(() => {
-    const fetchDocumentData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch the specific document by ID
-        const response = await axios.get(`/api/documents/${documentId}`);
-        setDocument(response.data);
-        
-        // Create blob URL for file preview if possible
-        const fileBlob = await fetchDocumentFile();
-        if (fileBlob) {
-          setFileUrl(URL.createObjectURL(fileBlob));
-        }
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching document data:', error);
-        setError('Failed to load document data. Please try again later.');
-        setLoading(false);
-      }
-    };
-
-    if (documentId) {
-      fetchDocumentData();
-    }
-    
-    // Cleanup the created blob URL when component unmounts
-    return () => {
-      if (fileUrl) {
-        URL.revokeObjectURL(fileUrl);
-      }
-    };
-  }, [documentId]);
-
-  // Function to fetch the document file as blob
   const fetchDocumentFile = async () => {
     try {
-      const response = await axios.get(`/api/documents/download/${documentId}`, {
+      const response = await api.get(`/documents/download/${documentId}`, {
         responseType: 'blob'
       });
       return response.data;
@@ -75,6 +39,46 @@ const DocumentReviewPage = () => {
       return null;
     }
   };
+  // Add these logs to your DocumentReviewPage component
+useEffect(() => {
+  const fetchDocumentData = async () => {
+    console.log("Starting document fetch for ID:", documentId);
+    try {
+      setLoading(true);
+      
+      // Debug token
+      console.log("Auth token present:", !!localStorage.getItem('token'));
+      
+      console.log("Making API request to:", `/documents/${documentId}`);
+      const response = await api.get(`/documents/${documentId}`);
+      console.log("API response received:", response);
+      setDocument(response.data);
+      
+      console.log("Attempting to fetch document file");
+      const fileBlob = await fetchDocumentFile();
+      console.log("File blob received:", !!fileBlob);
+      if (fileBlob) {
+        setFileUrl(URL.createObjectURL(fileBlob));
+      }
+      
+      setLoading(false);
+      console.log("Document loading complete");
+    } catch (error) {
+      console.error('Error details:', error);
+      console.error('Error response:', error.response?.data || 'No response data');
+      console.error('Error status:', error.response?.status || 'No status code');
+      setError('Failed to load document data. Please try again later.');
+      setLoading(false);
+    }
+  };
+
+  if (documentId) {
+    fetchDocumentData();
+  }
+}, [documentId]);
+
+  // Function to fetch the document file as blob
+  
 
   // Handle document approval
   const handleApprove = async () => {
@@ -82,7 +86,7 @@ const DocumentReviewPage = () => {
       setSubmitting(true);
       
       // Submit document approval
-      await axios.put(`/api/documents/${documentId}/status`, {
+      await api.put(`/documents/${documentId}/status`, {
         status: 'approved',
         feedback
       });
@@ -113,7 +117,7 @@ const DocumentReviewPage = () => {
       }
       
       // Submit document rejection
-      await axios.put(`/api/documents/${documentId}/status`, {
+      await api.put(`/documents/${documentId}/status`, {
         status: 'rejected',
         feedback
       });
@@ -135,7 +139,7 @@ const DocumentReviewPage = () => {
   // Handle download button click
   const handleDownload = async () => {
     try {
-      const response = await axios.get(`/api/documents/download/${documentId}`, {
+      const response = await api.get(`/documents/download/${documentId}`, {
         responseType: 'blob'
       });
       

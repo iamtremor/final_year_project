@@ -12,7 +12,9 @@ const {
   getAllDocuments,
   deleteDocument,
   getApprovableDocuments,
-  getCompletedClearances
+  getCompletedClearances,
+  getApprovedDocumentsByStaff,
+  getRejectedDocumentsByStaff
 } = require('../controllers/documentController');
 const auth = require('../middleware/auth');
 const { checkRole, checkRoles } = require('../middleware/roles');
@@ -35,6 +37,8 @@ router.delete('/:id', auth, deleteDocument);
 router.get('/pending', auth, checkRole('staff'), getPendingDocuments);
 router.put('/:id/status', auth, checkRoles(['staff', 'admin']), updateDocumentStatus);
 router.get('/staff/approvable', auth, checkRoles(['staff', 'admin']), getApprovableDocuments);
+router.get('/approved-by-me', auth, checkRole('staff'), getApprovedDocumentsByStaff);
+router.get('/rejected-by-me', auth, checkRole('staff'), getRejectedDocumentsByStaff);
 
 // Admin routes
 router.get('/all', auth, checkRole('admin'), getAllDocuments);

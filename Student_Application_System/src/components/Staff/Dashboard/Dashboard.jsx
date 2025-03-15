@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import axios from "axios";
+import api from "../../../utils/api";
 import { 
   FaTasks, 
   FaCheckCircle, 
@@ -26,55 +27,64 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/api/dashboard/staff');
-        setDashboardData(response.data);
-
-        // Fetch pending forms that require this staff's approval
-        const formsResponse = await axios.get('/api/clearance/forms/pending');
-        setPendingForms(formsResponse.data);
-
-        // Fetch pending documents that require this staff's approval
-        const documentsResponse = await axios.get('/api/documents/staff/approvable');
+        
+        const [
+          dashboardResponse, 
+          formsResponse, 
+          documentsResponse
+        ] = await Promise.all([
+          api.get('/dashboard/staff'),
+          api.get('/clearance/forms/pending'),
+          api.get('/documents/staff/approvable')
+        ]);
+  
+        console.log('Dashboard Data:', dashboardResponse.data);
+        console.log('Pending Forms:', formsResponse.data);
+        console.log('Pending Documents:', documentsResponse.data);
+  
+        setDashboardData(dashboardResponse.data);
+        setPendingForms(formsResponse.data.forms || []); // Use .forms from the new backend response
         setPendingDocuments(documentsResponse.data);
-
+  
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        setError('Failed to load dashboard data. Please try again later.');
+        console.error('Dashboard Fetch Error:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
+        setError('Failed to load dashboard data');
         setLoading(false);
       }
     };
-
+  
     fetchDashboardData();
   }, []);
-
   // Function to get the appropriate forms based on staff department
   const getRelevantForms = () => {
     if (!user || !pendingForms) return [];
-
-    // If pendingForms is an object with different form types
-    if (typeof pendingForms === 'object' && !Array.isArray(pendingForms)) {
-      let relevantForms = [];
-
-      // Handle forms for Deputy Registrar
+  
+    // Filter forms based on staff department and role
+    return pendingForms.filter(form => {
+      // For Deputy Registrar: all New Clearance forms not yet approved
       if (user.department === 'Registrar') {
-        const newClearanceForms = pendingForms.newClearance || [];
-        relevantForms = [...relevantForms, ...newClearanceForms.filter(form => !form.deputyRegistrarApproved)];
+        return form.formType === 'newClearance' && !form.deputyRegistrarApproved;
       }
-      // Handle forms for School Officer
-      else {
-        const newClearanceForms = pendingForms.newClearance || [];
-        relevantForms = [...relevantForms, ...newClearanceForms.filter(
-          form => form.deputyRegistrarApproved && !form.schoolOfficerApproved && 
-          form.studentId.department === user.department
-        )];
+      
+      // For School Officers: New Clearance forms approved by Deputy Registrar 
+      // and for their department
+      if (!user.department.includes('HOD')) {
+        return (
+          form.formType === 'newClearance' && 
+          form.deputyRegistrarApproved && 
+          !form.schoolOfficerApproved && 
+          form.studentId?.department === user.department
+        );
       }
-
-      return relevantForms;
-    }
-
-    // If pendingForms is an array
-    return pendingForms;
+  
+      // For other cases, include all pending forms
+      return true;
+    });
   };
 
   const renderStats = () => {
@@ -197,34 +207,37 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {relevantForms.map((form) => (
-                  <tr key={form.id} className="hover:bg-gray-50">
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      {form.studentId?.fullName || "Unknown Student"}
-                    </td>
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      {form.type === 'newClearance' ? 'New Clearance Form' : 
-                       form.type === 'provAdmission' ? 'Provisional Admission Form' :
-                       form.formName || "Form"}
-                    </td>
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      {new Date(form.submittedDate).toLocaleDateString()}
-                    </td>
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                        Pending Review
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      <Link 
-                        to={`/staff/review-form/${form.id}?type=${form.type || 'newClearance'}`}
-                        className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
-                      >
-                        Review
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+              {relevantForms.map((form) => (
+  <tr key={form._id} className="hover:bg-gray-50">
+    <td className="py-4 px-4 whitespace-nowrap">
+      {form.studentId?.fullName || form.studentName || "Unknown Student"}
+    </td>
+    <td className="py-4 px-4 whitespace-nowrap">
+      {form.formType === 'newClearance' ? 'New Clearance Form' : 
+       form.formType === 'provAdmission' ? 'Provisional Admission Form' :
+       form.formType === 'personalRecord' ? 'Personal Record Form' :
+       form.formType === 'personalRecord2' ? 'Family Information Form' :
+       form.formType === 'affidavit' ? 'Rules & Regulations Affidavit' :
+       'Unknown Form'}
+    </td>
+    <td className="py-4 px-4 whitespace-nowrap">
+      {new Date(form.submittedDate).toLocaleDateString()}
+    </td>
+    <td className="py-4 px-4 whitespace-nowrap">
+      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+        Pending Review
+      </span>
+    </td>
+    <td className="py-4 px-4 whitespace-nowrap">
+      <Link 
+        to={`/staff/review-form/${form._id}?type=${form.formType}`}
+        className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
+      >
+        Review
+      </Link>
+    </td>
+  </tr>
+))}
               </tbody>
             </table>
           </div>
@@ -307,7 +320,7 @@ const Dashboard = () => {
       {dashboardData?.pendingItems && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center mb-4">
-            <FiBell size={22} className="text-[#1E3A8A] mr-2" />
+            <FaBell size={22} className="text-[#1E3A8A] mr-2" />
             <h3 className="text-lg font-bold text-[#1E3A8A]">Recent Activities</h3>
           </div>
           
@@ -325,7 +338,7 @@ const Dashboard = () => {
                       {notification.status === 'success' ? <FaCheckCircle className="text-green-600" /> :
                        notification.status === 'warning' ? <FiAlertTriangle className="text-yellow-600" /> :
                        notification.status === 'error' ? <FaTimesCircle className="text-red-600" /> :
-                       <FiBell className="text-blue-600" />
+                       <FaBell className="text-blue-600" />
                       }
                     </div>
                     <div>
@@ -341,7 +354,7 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="text-center py-6 bg-gray-50 rounded-lg">
-              <FiBell size={40} className="mx-auto text-gray-400" />
+              <FaBell size={40} className="mx-auto text-gray-400" />
               <p className="mt-2 text-gray-500">No recent activities to display.</p>
             </div>
           )}

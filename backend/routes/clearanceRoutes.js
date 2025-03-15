@@ -12,10 +12,12 @@ const {
   submitAffidavitForm,
   approveForm,
   getFormById,
-  getPendingForms,
-  getStudentForms
+  getStudentForms,
+  getPendingForms
 } = require('../controllers/clearanceController');
 
+
+// Student routes
 // Student routes
 router.get('/forms', auth, getFormsStatus);
 router.post('/forms/new-clearance', auth, checkRole('student'), submitNewClearanceForm);

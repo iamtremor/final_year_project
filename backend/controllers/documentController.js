@@ -771,7 +771,109 @@ const checkClearanceCompletion = async (studentId) => {
   
   return false;
 };
+/**
+ * Get documents approved by the current staff member
+ * @route   GET /api/documents/approved-by-me
+ * @access  Private (Staff only)
+ */
+const getApprovedDocumentsByStaff = async (req, res) => {
+  try {
+    const staffId = req.user._id;
+    const department = req.user.department;
+    
+    // Determine which documents this staff can approve based on their department
+    let documentFilter = {};
+    
+    switch (department) {
+      case 'Registrar':
+        documentFilter.documentType = 'Admission Letter';
+        break;
+      case 'Student Support':
+        documentFilter.documentType = { $in: ['Birth Certificate', 'Passport'] };
+        break;
+      case 'Finance':
+        documentFilter.documentType = 'Payment Receipt';
+        break;
+      case 'Health Services':
+        documentFilter.documentType = 'Medical Report';
+        break;
+      default:
+        // For academic departments
+        if (department.includes('HOD')) {
+          documentFilter.documentType = 'Transcript';
+        } else {
+          // School officers for standard documents
+          documentFilter.documentType = { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] };
+        }
+    }
+    
+    const approvedDocuments = await Document.find({
+      ...documentFilter,
+      reviewedBy: staffId,
+      status: 'approved'
+    }).populate('owner', 'fullName email department');
+    
+    res.json(approvedDocuments);
+  } catch (error) {
+    console.error('Error fetching approved documents:', error);
+    res.status(500).json({ 
+      message: 'Server error fetching approved documents',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+};
 
+/**
+ * Get documents rejected by the current staff member
+ * @route   GET /api/documents/rejected-by-me
+ * @access  Private (Staff only)
+ */
+const getRejectedDocumentsByStaff = async (req, res) => {
+  try {
+    const staffId = req.user._id;
+    const department = req.user.department;
+    
+    // Determine which documents this staff can approve based on their department
+    let documentFilter = {};
+    
+    switch (department) {
+      case 'Registrar':
+        documentFilter.documentType = 'Admission Letter';
+        break;
+      case 'Student Support':
+        documentFilter.documentType = { $in: ['Birth Certificate', 'Passport'] };
+        break;
+      case 'Finance':
+        documentFilter.documentType = 'Payment Receipt';
+        break;
+      case 'Health Services':
+        documentFilter.documentType = 'Medical Report';
+        break;
+      default:
+        // For academic departments
+        if (department.includes('HOD')) {
+          documentFilter.documentType = 'Transcript';
+        } else {
+          // School officers for standard documents
+          documentFilter.documentType = { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] };
+        }
+    }
+    
+    const rejectedDocuments = await Document.find({
+      ...documentFilter,
+      reviewedBy: staffId,
+      status: 'rejected'
+    }).populate('owner', 'fullName email department');
+    
+    res.json(rejectedDocuments);
+  } catch (error) {
+    console.error('Error fetching rejected documents:', error);
+    res.status(500).json({ 
+      message: 'Server error fetching rejected documents',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+};
 
 // Add this to the exports at the bottom of the file:
 // deleteDocument,
@@ -788,5 +890,7 @@ module.exports = {
   getStudentClearanceStatus,
   checkClearanceCompletion,
   canStaffApproveDocument,
-  deleteDocument // Add this to the exports
+  deleteDocument, // Add this to the exports
+  getApprovedDocumentsByStaff,
+  getRejectedDocumentsByStaff
 };

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import axios from "axios";
+import api from "../../utils/api";
 import { 
   FaSearch, 
   FaFilter, 
@@ -33,10 +34,10 @@ const StaffPending = () => {
         setLoading(true);
         
         // Fetch pending forms
-        const formsResponse = await axios.get('/api/clearance/forms/pending');
+        const formsResponse = await api.get('/clearance/forms/pending?formType=newClearance');
         
         // Fetch pending documents
-        const documentsResponse = await axios.get('/api/documents/staff/approvable');
+        const documentsResponse = await api.get('/documents/staff/approvable');
         
         // Process forms data - handle both object and array responses
         let processedForms = [];

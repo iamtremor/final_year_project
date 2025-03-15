@@ -121,6 +121,7 @@ const getFormsStatus = async (req, res) => {
  */
 const getFormById = async (req, res) => {
   try {
+    console.log(req.query)
     const { formId } = req.params;
     const { formType } = req.query;
     
@@ -170,95 +171,125 @@ const getFormById = async (req, res) => {
  */
 const getPendingForms = async (req, res) => {
   try {
-    const staffId = req.user._id;
-    const { formType } = req.query;
-    
-    // Ensure only staff can access this endpoint
+    // Comprehensive logging
+    console.log('Pending Forms Request Details:', {
+      user: {
+        id: req.user._id,
+        role: req.user.role,
+        department: req.user.department
+      },
+      query: req.query
+    });
+
+    // Validate user role
     if (req.user.role !== 'staff' && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Unauthorized: Staff only' });
+      return res.status(403).json({ 
+        message: 'Unauthorized: Staff or admin access only',
+        details: {
+          userRole: req.user.role
+        }
+      });
     }
-    
-    let forms = [];
-    
-    if (formType === 'newClearance') {
-      // Get pending New Clearance Forms based on staff role
-      if (req.user.department === 'Registrar') {
-        // For Deputy Registrar - forms that need deputy registrar approval
-        forms = await NewClearanceForm.find({ 
-          deputyRegistrarApproved: false 
-        }).populate('studentId', 'fullName email');
-      } else {
-        // For School Officer - forms that have deputy registrar approval but not school officer approval
-        forms = await NewClearanceForm.find({
-          deputyRegistrarApproved: true,
-          schoolOfficerApproved: false
-        }).populate('studentId', 'fullName email department');
-      }
-    } else if (formType === 'provAdmission') {
-      // For Provisional Admission - find forms that need specific staff role approval
-      const staffRole = getStaffRoleFromDepartment(req.user.department);
-      
-      forms = await ProvAdmissionForm.find({
-        submitted: true,
-        approved: false,
-        'approvals.staffRole': staffRole,
-        'approvals.approved': false
+
+    // Fetch pending forms from different models
+    const NewClearanceForm = require('../models/NewClearanceForm');
+    const ProvAdmissionForm = require('../models/ProvAdmissionForm');
+    const PersonalRecordForm = require('../models/PersonalRecordForm');
+    const PersonalRecord2Form = require('../models/PersonalRecord2Form');
+    const AffidavitForm = require('../models/AffidavitForm');
+    const User = require('../models/User');
+
+    let pendingForms = [];
+
+    // For Registrar - New Clearance Forms not yet approved
+    if (req.user.department === 'Registrar') {
+      const registrarForms = await NewClearanceForm.find({
+        deputyRegistrarApproved: false,
+        submitted: true
       }).populate('studentId', 'fullName email department');
-    } else if (formType) {
-      // For other form types, get all submitted but not approved forms
-      let Model;
-      if (formType === 'personalRecord') Model = PersonalRecordForm;
-      else if (formType === 'personalRecord2') Model = PersonalRecord2Form;
-      else if (formType === 'affidavit') Model = AffidavitForm;
-      
-      if (Model) {
-        forms = await Model.find({
-          submitted: true,
-          approved: false
-        }).populate('studentId', 'fullName email department');
-      }
-    } else {
-      // If no form type specified, get all pending forms
+
+      pendingForms = pendingForms.concat(
+        registrarForms.map(form => ({
+          ...form.toObject(),
+          formType: 'newClearance'
+        }))
+      );
+    }
+
+    // For School Officers - Forms in their department
+    if (!req.user.department.includes('HOD')) {
+      const studentsInDept = await User.find({ 
+        role: 'student', 
+        department: req.user.department 
+      }).select('_id');
+
+      // New Clearance Forms
       const newClearanceForms = await NewClearanceForm.find({
-        $or: [
-          { deputyRegistrarApproved: false },
-          { schoolOfficerApproved: false }
-        ]
+        studentId: { $in: studentsInDept.map(s => s._id) },
+        deputyRegistrarApproved: true,
+        schoolOfficerApproved: false,
+        submitted: true
       }).populate('studentId', 'fullName email department');
-      
-      const provAdmissionForms = await ProvAdmissionForm.find({
-        submitted: true,
-        approved: false
-      }).populate('studentId', 'fullName email department');
-      
-      const personalRecordForms = await PersonalRecordForm.find({
-        submitted: true,
-        approved: false
-      }).populate('studentId', 'fullName email department');
-      
-      const personalRecord2Forms = await PersonalRecord2Form.find({
-        submitted: true,
-        approved: false
-      }).populate('studentId', 'fullName email department');
-      
-      const affidavitForms = await AffidavitForm.find({
-        submitted: true,
-        approved: false
-      }).populate('studentId', 'fullName email department');
-      
-      forms = {
-        newClearance: newClearanceForms,
-        provAdmission: provAdmissionForms,
-        personalRecord: personalRecordForms,
-        personalRecord2: personalRecord2Forms,
-        affidavit: affidavitForms
-      };
+
+      pendingForms = pendingForms.concat(
+        newClearanceForms.map(form => ({
+          ...form.toObject(),
+          formType: 'newClearance'
+        }))
+      );
     }
-    
-    res.json(forms);
+
+    // Provisional Admission Forms
+    const provAdmissionForms = await ProvAdmissionForm.find({
+      submitted: true,
+      approved: false
+    }).populate('studentId', 'fullName email department');
+
+    pendingForms = pendingForms.concat(
+      provAdmissionForms.map(form => ({
+        ...form.toObject(),
+        formType: 'provAdmission'
+      }))
+    );
+
+    // Other form types
+    const otherFormTypes = [
+      { model: PersonalRecordForm, type: 'personalRecord' },
+      { model: PersonalRecord2Form, type: 'personalRecord2' },
+      { model: AffidavitForm, type: 'affidavit' }
+    ];
+
+    for (const { model, type } of otherFormTypes) {
+      const forms = await model.find({
+        submitted: true,
+        approved: false
+      }).populate('studentId', 'fullName email department');
+
+      pendingForms = pendingForms.concat(
+        forms.map(form => ({
+          ...form.toObject(),
+          formType: type
+        }))
+      );
+    }
+
+    // Logging results
+    console.log('Pending Forms Found:', {
+      totalForms: pendingForms.length,
+      formTypes: pendingForms.map(f => f.formType)
+    });
+
+    res.json({
+      totalPendingForms: pendingForms.length,
+      forms: pendingForms
+    });
   } catch (error) {
-    console.error('Error getting pending forms:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error in getPendingForms:', error);
+    res.status(500).json({ 
+      message: 'Server error fetching pending forms',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 

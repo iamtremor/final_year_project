@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
-
+import api from '../utils/api';
 // Create authentication context
 const AuthContext = createContext();
 
@@ -12,59 +12,96 @@ export const AuthProvider = ({ children }) => {
   
   // Check for token and set auth state on first load
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const userData = localStorage.getItem("user");
+  const initializeAuth = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const userData = localStorage.getItem("user");
   
-        if (token && userData) {
-          // 🔍 Store user with token
-          const parsedUser = JSON.parse(userData);
-          parsedUser.token = token; // Attach token to user object
-          setUser(parsedUser);
-          
-          // Set axios header
-          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-        }
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-        logout();
-      } finally {
-        setLoading(false);
+      if (token && userData) {
+        const parsedUser = JSON.parse(userData);
+        
+        // Use detailedRole if available, otherwise fall back to role
+        const displayRole = parsedUser.detailedRole || 
+                             (parsedUser.role === 'staff' ? 'Staff' : parsedUser.role);
+        
+        parsedUser.displayRole = displayRole;
+        
+        setUser(parsedUser);
+        
+        // Set axios header
+        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       }
-    };
-  
-    initializeAuth();
-  }, []);
+    } catch (error) {
+      console.error("Auth initialization error:", error);
+      logout();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  initializeAuth();
+}, []);
   
   // Login function for any role
   const login = async (credentials, role) => {
-    const response = await axios.post(`http://localhost:5000/api/auth/${role}/login`, credentials);
-    
-    // Store token and user data
-    localStorage.setItem('token', response.data.token);
-    localStorage.setItem('user', JSON.stringify(response.data.user));
-    
-    // Set axios default header
-    axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-    
-    setUser(response.data.user);
-    return response.data;
+    try {
+      const response = await axios.post(`/api/auth/${role}/login`, credentials);
+      
+      // Store token and user data
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      
+      // Format the user object with displayRole just like in initializeAuth
+      const userWithDisplayRole = {
+        ...response.data.user,
+        displayRole: response.data.user.detailedRole || 
+                    (response.data.user.role === 'staff' ? 'Staff' : response.data.user.role)
+      };
+      
+      // Update the user state with the formatted user object
+      setUser(userWithDisplayRole);
+      
+      // Set default axios header
+      api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+      
+      return response.data;
+    } catch (error) {
+      console.error('Login Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw error; // Re-throw to allow component to handle
+    }
   };
   
   // Register function for any role
   const register = async (userData, role) => {
-    const response = await axios.post(`http://localhost:5000/api/auth/${role}/register`, userData);
-    
-    // Store token and user data
-    localStorage.setItem('token', response.data.token);
-    localStorage.setItem('user', JSON.stringify(response.data.user));
-    
-    // Set axios default header
-    axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-    
-    setUser(response.data.user);
-    return response.data;
+    try {
+      const response = await axios.post(`/api/auth/${role}/register`, userData);
+      
+      // Store token and user data
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      
+      // Format the user object with displayRole
+      const userWithDisplayRole = {
+        ...response.data.user,
+        displayRole: response.data.user.detailedRole || 
+                    (response.data.user.role === 'staff' ? 'Staff' : response.data.user.role)
+      };
+      
+      // Update the user state with the formatted user object
+      setUser(userWithDisplayRole);
+      
+      // Set axios default header
+      api.defaults.headers.common["Authorization"] = `Bearer ${response.data.token}`;
+      
+      return response.data;
+    } catch (error) {
+      console.error('Registration Error:', error);
+      throw error; // Re-throw to allow component to handle
+    }
   };
   
   // Logout function
