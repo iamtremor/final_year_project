@@ -472,13 +472,64 @@ const deleteDocument = async (req, res) => {
  * @param {Object} document - Document to approve
  * @returns {boolean} - Whether the staff can approve this document
  */
+// with department verification
+// const canStaffApproveDocument = async (staff, document) => {
+//   // If the document has a specific approverRole field, check against that
+//   if (document.approverRole) {
+//     switch (document.approverRole) {
+//       case 'schoolOfficer':
+//         // School officer can approve JAMB and WAEC documents
+//         return staff.department === (await User.findById(document.owner)).department;
+//       case 'deputyRegistrar':
+//         return staff.department === 'Registrar';
+//       case 'studentSupport':
+//         return staff.department === 'Student Support';
+//       case 'finance':
+//         return staff.department === 'Finance';
+//       case 'health':
+//         return staff.department === 'Health Services';
+//       case 'departmentHead':
+//         const studentDept = (await User.findById(document.owner)).department;
+//         return staff.department === `${studentDept} HOD`;
+//       default:
+//         return false;
+//     }
+//   }
+  
+//   // If no specific approverRole, use document type to determine who can approve
+//   switch (document.documentType) {
+//     case 'JAMB Result':
+//     case 'JAMB Admission':
+//     case 'WAEC':
+//       // School officer can approve these
+//       const studentDept = (await User.findById(document.owner)).department;
+//       return staff.department === studentDept;
+//     case 'Admission Letter':
+//       return staff.department === 'Registrar';
+//     case 'Birth Certificate':
+//     case 'Passport':
+//       return staff.department === 'Student Support';
+//     case 'Payment Receipt':
+//       return staff.department === 'Finance';
+//     case 'Medical Report':
+//       return staff.department === 'Health Services';
+//     case 'Transcript':
+//       const studentDept2 = (await User.findById(document.owner)).department;
+//       return staff.department === `${studentDept2} HOD`;
+//     default:
+//       // Admin only for anything else
+//       return false;
+//   }
+// };
+
+// without department verification
 const canStaffApproveDocument = async (staff, document) => {
   // If the document has a specific approverRole field, check against that
   if (document.approverRole) {
     switch (document.approverRole) {
       case 'schoolOfficer':
-        // School officer can approve JAMB and WAEC documents
-        return staff.department === (await User.findById(document.owner)).department;
+        // School officer can now approve ANY department's documents
+        return staff.department === 'School Officer';
       case 'deputyRegistrar':
         return staff.department === 'Registrar';
       case 'studentSupport':
@@ -500,9 +551,8 @@ const canStaffApproveDocument = async (staff, document) => {
     case 'JAMB Result':
     case 'JAMB Admission':
     case 'WAEC':
-      // School officer can approve these
-      const studentDept = (await User.findById(document.owner)).department;
-      return staff.department === studentDept;
+      // School officer can approve these from ANY department
+      return staff.department === 'School Officer';
     case 'Admission Letter':
       return staff.department === 'Registrar';
     case 'Birth Certificate':
@@ -520,7 +570,6 @@ const canStaffApproveDocument = async (staff, document) => {
       return false;
   }
 };
-
 /**
  * Get documents that a staff member can approve
  * @route   GET /api/documents/staff/approvable

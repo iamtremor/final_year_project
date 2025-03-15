@@ -364,7 +364,7 @@ return (
     {activeTab === 'upload' && (
       <div className="space-y-8">
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="">
           <div className="grid grid-cols-1 gap-6">
             {documentUploads.map((upload, index) => (
               <div 

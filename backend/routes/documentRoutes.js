@@ -29,19 +29,21 @@ const upload = multer({
 // Student routes
 router.post('/upload', auth, checkRole('student'), upload.single('file'), uploadDocument);
 router.get('/student', auth, checkRole('student'), getStudentDocuments);
-router.get('/:id', auth, getDocumentById);
-router.get('/download/:id', auth, downloadDocument);
-router.delete('/:id', auth, deleteDocument);
 
-// Staff routes
+// Staff routes - SPECIFIC NAMED ROUTES FIRST
 router.get('/pending', auth, checkRole('staff'), getPendingDocuments);
-router.put('/:id/status', auth, checkRoles(['staff', 'admin']), updateDocumentStatus);
 router.get('/staff/approvable', auth, checkRoles(['staff', 'admin']), getApprovableDocuments);
 router.get('/approved-by-me', auth, checkRole('staff'), getApprovedDocumentsByStaff);
 router.get('/rejected-by-me', auth, checkRole('staff'), getRejectedDocumentsByStaff);
 
-// Admin routes
+// Admin routes - SPECIFIC NAMED ROUTES
 router.get('/all', auth, checkRole('admin'), getAllDocuments);
 router.get('/clearance/completed', auth, checkRole('admin'), getCompletedClearances);
+
+// GENERIC PARAMETER ROUTES LAST
+router.get('/download/:id', auth, downloadDocument);
+router.get('/:id', auth, getDocumentById);
+router.delete('/:id', auth, deleteDocument);
+router.put('/:id/status', auth, checkRoles(['staff', 'admin']), updateDocumentStatus);
 
 module.exports = router;

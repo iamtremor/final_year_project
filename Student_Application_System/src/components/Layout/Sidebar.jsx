@@ -40,7 +40,7 @@ const Sidebar = ({ role }) => {
           { path: "/student/forms/personal-record", name: "Personal Record" , icon: FiFileText},
           { path: "/student/forms/personal-record2", name: "Personal Record 2" , icon: FiFileText},
           { path: "/student/forms/affidavit", name: "Rules & Affidavit" , icon: FiFileText},
-          { path: "/student/forms/form-status", name: "Form Status", icon: HiOutlineDocumentSearch }
+          { path: "/student/forms/form-status", name: "Forms Status", icon: HiOutlineDocumentSearch }
         ]
       },
       { path: "/student/my-documents", name: "My Documents", icon: FiFileText },
@@ -57,7 +57,7 @@ const Sidebar = ({ role }) => {
       },
       {
         path: "/student/track",
-        name: "Track Status",
+        name: "Track Document Status",
         icon: HiOutlineDocumentSearch,
       },
       {
