@@ -70,6 +70,13 @@ const UserSchema = new mongoose.Schema({
       return this.role === 'admin';
     }
   },
+  managedDepartments: {
+    type: [String],
+    default: function() {
+      // By default, a staff member manages only their own department
+      return this.role === 'staff' ? [this.department] : [];
+    }
+  },
   // Blockchain transaction details
   blockchainTxHash: {
     type: String

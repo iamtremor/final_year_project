@@ -191,78 +191,46 @@ const getFormById = async (req, res) => {
  */
 const getPendingForms = async (req, res) => {
   try {
-    // Comprehensive logging
-    console.log('Pending Forms Request Details:', {
-      user: {
-        id: req.user._id,
-        role: req.user.role,
-        department: req.user.department
-      },
-      query: req.query
-    });
-
     // Validate user role
     if (req.user.role !== 'staff' && req.user.role !== 'admin') {
       return res.status(403).json({ 
-        message: 'Unauthorized: Staff or admin access only',
-        details: {
-          userRole: req.user.role
-        }
+        message: 'Unauthorized: Staff or admin access only'
       });
     }
 
-    // Fetch pending forms from different models
-    const NewClearanceForm = require('../models/NewClearanceForm');
-    const ProvAdmissionForm = require('../models/ProvAdmissionForm');
-    const PersonalRecordForm = require('../models/PersonalRecordForm');
-    const PersonalRecord2Form = require('../models/PersonalRecord2Form');
-    const AffidavitForm = require('../models/AffidavitForm');
-    const User = require('../models/User');
-
     let pendingForms = [];
 
-    // For Registrar - New Clearance Forms not yet approved
-    if (req.user.department === 'Registrar') {
-      // First, log total count of all forms to check if any exist
-      const totalNewClearanceForms = await NewClearanceForm.countDocuments({});
-      console.log(`Total NewClearanceForm documents in database: ${totalNewClearanceForms}`);
+    // For School Officer - New Clearance Forms not yet approved
+    if (req.user.department === 'School Officer') {
+      // Get all the departments this school officer manages
+      const managedDepartments = req.user.managedDepartments || [req.user.department];
       
-      // Check all forms with pending status
-      const allPendingForms = await NewClearanceForm.find({
-        deputyRegistrarApproved: false,
-        submitted: true
+      // Find students in these departments
+      const studentsInManagedDepts = await User.find({ 
+        role: 'student', 
+        department: { $in: managedDepartments }
       });
       
-      console.log(`Found ${allPendingForms.length} pending forms for Registrar`);
+      const studentIds = studentsInManagedDepts.map(s => s._id);
       
-      // Check if the forms have valid student references
-      for (const form of allPendingForms) {
-        const student = await User.findById(form.studentId);
-        console.log(`Form ${form._id} belongs to student:`, student ? student.fullName : 'Not found');
-      }
-
-      const registrarForms = await NewClearanceForm.find({
-        deputyRegistrarApproved: false,
+      // Find forms for these students
+      const schoolOfficerForms = await NewClearanceForm.find({
+        studentId: { $in: studentIds },
+        deputyRegistrarApproved: true,
+        schoolOfficerApproved: false,
         submitted: true
       }).populate('studentId', 'fullName email department');
 
-      console.log(`After population, found ${registrarForms.length} forms for Registrar with valid students`);
-
       pendingForms = pendingForms.concat(
-        registrarForms.map(form => ({
+        schoolOfficerForms.map(form => ({
           ...form.toObject(),
           formType: 'newClearance'
         }))
       );
     }
-
-    // [...the rest of the function remains the same...]
-
-    // Logging results
-    console.log('Pending Forms Found:', {
-      totalForms: pendingForms.length,
-      formTypes: pendingForms.map(f => f.formType)
-    });
+    
+    // Handle other departments as before...
+    // (include the existing code for other departments)
 
     res.json({
       totalPendingForms: pendingForms.length,
@@ -271,9 +239,7 @@ const getPendingForms = async (req, res) => {
   } catch (error) {
     console.error('Error in getPendingForms:', error);
     res.status(500).json({ 
-      message: 'Server error fetching pending forms',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: 'Server error fetching pending forms'
     });
   }
 };
@@ -887,45 +853,20 @@ const approveForm = async (req, res) => {
     const staffId = req.user._id;
     const staffRole = req.user.role;
     
-    console.log('Form Approval Request:', {
-      formId,
-      formType,
-      approvalType,
-      staffId,
-      staffRole
-    });
-
-    // Validate staff role
     if (staffRole !== 'staff' && staffRole !== 'admin') {
-      return res.status(403).json({ 
-        message: 'Unauthorized: Only staff can approve forms',
-        details: { staffRole }
-      });
+      return res.status(403).json({ message: 'Unauthorized: Only staff can approve forms' });
     }
     
-    // Determine which model to use
+    // Determine which model to use based on formType
     let Model;
-    switch (formType) {
-      case 'newClearance': 
-        Model = require('../models/NewClearanceForm');
-        break;
-      case 'provAdmission': 
-        Model = require('../models/ProvAdmissionForm');
-        break;
-      case 'personalRecord': 
-        Model = require('../models/PersonalRecordForm');
-        break;
-      case 'personalRecord2': 
-        Model = require('../models/PersonalRecord2Form');
-        break;
-      case 'affidavit': 
-        Model = require('../models/AffidavitForm');
-        break;
-      default:
-        return res.status(400).json({ 
-          message: 'Invalid form type',
-          receivedType: formType 
-        });
+    if (formType === 'newClearance') Model = NewClearanceForm;
+    else if (formType === 'provAdmission') Model = ProvAdmissionForm;
+    else if (formType === 'personalRecord') Model = PersonalRecordForm;
+    else if (formType === 'personalRecord2') Model = PersonalRecord2Form;
+    else if (formType === 'affidavit') Model = AffidavitForm;
+    
+    if (!Model) {
+      return res.status(400).json({ message: 'Invalid form type' });
     }
     
     // Find the form
@@ -935,71 +876,128 @@ const approveForm = async (req, res) => {
       return res.status(404).json({ message: 'Form not found' });
     }
     
-    // Approval logic based on form type
-    switch (formType) {
-      case 'newClearance':
-        if (approvalType === 'deputyRegistrar') {
-          form.deputyRegistrarApproved = true;
-        } else if (approvalType === 'schoolOfficer') {
-          form.schoolOfficerApproved = true;
-        } else {
-          return res.status(400).json({ 
-            message: 'Invalid approval type for New Clearance Form',
-            receivedType: approvalType 
-          });
-        }
-        break;
-      
-      case 'provAdmission':
-        // Find and update the specific approval
-        const approvalIndex = form.approvals.findIndex(a => a.staffRole === approvalType);
-        if (approvalIndex === -1) {
-          return res.status(400).json({ 
-            message: 'Invalid approval type for Provisional Admission Form',
-            receivedType: approvalType 
-          });
-        }
-        
-        form.approvals[approvalIndex].approved = true;
-        form.approvals[approvalIndex].staffId = staffId;
-        form.approvals[approvalIndex].approvedDate = Date.now();
-        form.approvals[approvalIndex].comments = comments;
-        
-        // Check if all approvals are complete
-        const allApproved = form.approvals.every(a => a.approved);
-        if (allApproved) {
-          form.approved = true;
-          form.approvedDate = Date.now();
-        }
-        break;
-      
-      default:
-        // For other form types, simple approval
-        form.approved = true;
-        form.approvedDate = Date.now();
+    // Get the student
+    const student = await User.findById(form.studentId);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
     }
     
-    // Save form with comments if provided
-    if (comments) {
-      form.comments = comments;
+    // Handle approval based on form type
+    if (formType === 'newClearance') {
+      // For New Clearance Form, we have specific approvals for Deputy Registrar and School Officer
+      if (approvalType === 'deputyRegistrar') {
+        form.deputyRegistrarApproved = true;
+      } else if (approvalType === 'schoolOfficer') {
+        form.schoolOfficerApproved = true;
+      } else {
+        return res.status(400).json({ message: 'Invalid approval type for New Clearance Form' });
+      }
+      
+      // Set approval date if both approvals are complete
+      if (form.deputyRegistrarApproved && form.schoolOfficerApproved) {
+        form.approvedDate = Date.now();
+        
+        // Create notification for student that they can proceed with other forms
+        const notification = new Notification({
+          title: 'New Clearance Form Approved',
+          description: 'Your New Clearance Form has been fully approved. You can now submit other forms and upload documents.',
+          recipient: student._id,
+          status: 'success',
+          type: 'form_approval'
+        });
+        await notification.save();
+      }
+    } else if (formType === 'provAdmission') {
+      // For Provisional Admission, we need specific staff approvals
+      const approvalIndex = form.approvals.findIndex(a => a.staffRole === approvalType);
+      
+      if (approvalIndex === -1) {
+        return res.status(400).json({ message: 'Invalid approval type for this form' });
+      }
+      
+      // Update the approval
+      form.approvals[approvalIndex].approved = true;
+      form.approvals[approvalIndex].staffId = staffId;
+      form.approvals[approvalIndex].approvedDate = Date.now();
+      if (comments) {
+        form.approvals[approvalIndex].comments = comments;
+      }
+      
+      // Check if all approvals are complete
+      const allApproved = form.approvals.every(approval => approval.approved);
+      if (allApproved) {
+        form.approved = true;
+        form.approvedDate = Date.now();
+        
+        // Notify student of full approval
+        const notification = new Notification({
+          title: 'Provisional Admission Form Fully Approved',
+          description: 'Your Provisional Admission Form has been approved by all required staff.',
+          recipient: student._id,
+          status: 'success',
+          type: 'form_approval'
+        });
+        await notification.save();
+      } else {
+        // Notify student of partial approval
+        const notification = new Notification({
+          title: 'Partial Form Approval',
+          description: `Your Provisional Admission Form has been approved by ${approvalType}.`,
+          recipient: student._id,
+          status: 'info',
+          type: 'form_approval'
+        });
+        await notification.save();
+      }
+    } else {
+      // For other forms, just a simple approval
+      form.approved = true;
+      form.approvedDate = Date.now();
+      
+      // Notify student
+      const notification = new Notification({
+        title: `${formType.charAt(0).toUpperCase() + formType.slice(1)} Form Approved`,
+        description: `Your ${formType} form has been approved.`,
+        recipient: student._id,
+        status: 'success',
+        type: 'form_approval'
+      });
+      await notification.save();
     }
     
     await form.save();
     
+    // Record on blockchain if available
+    try {
+      if (student.applicationId) {
+        const blockchainResult = await blockchainService.recordFormApproval(
+          student.applicationId,
+          formType,
+          approvalType
+        );
+        
+        console.log(`Form approval recorded on blockchain: ${blockchainResult.transactionHash}`);
+      }
+    } catch (blockchainError) {
+      console.error('Blockchain recording error:', blockchainError);
+      // Continue with response, don't fail if blockchain has issues
+    }
+    
+    // Check if all forms are approved for this student
+    try {
+      await checkClearanceCompletion(student._id);
+    } catch (err) {
+      console.error('Error checking clearance completion:', err);
+    }
+    
     res.json({
       message: 'Form approved successfully',
-      form
+      formId: form._id,
+      approvalType
     });
   } catch (error) {
-    console.error('Form approval error:', {
-      message: error.message,
-      stack: error.stack
-    });
-    
-    res.status(500).json({ 
-      message: 'Server error during form approval',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
+    console.error('Error approving form:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 

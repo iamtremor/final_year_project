@@ -18,7 +18,7 @@ const getUserProfile = async (req, res) => {
       email: user.email,
       role: user.role,
       department: user.department,
-      createdAt: user.createdAt
+      createdAt: user.createdAt,
     };
     
     // Add role-specific fields

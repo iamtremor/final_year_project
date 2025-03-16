@@ -525,12 +525,21 @@ const deleteDocument = async (req, res) => {
 // without department verification
 // More flexible staff document approval function
 const canStaffApproveDocument = async (staff, document) => {
+  // Get the document owner's department
+  const student = await User.findById(document.owner);
+  if (!student) {
+    return false;
+  }
+  
+  const studentDepartment = student.department;
+  console.log(staff.managedDepartments);
   // If the document has a specific approverRole field, check against that
   if (document.approverRole) {
     switch (document.approverRole) {
       case 'schoolOfficer':
-        // STRICTLY School Officer can approve
-        return staff.department === 'School Officer';
+        // School officer can approve documents if they manage the student's department
+        return staff.managedDepartments && 
+               staff.managedDepartments.includes(studentDepartment);
       case 'deputyRegistrar':
         return staff.department === 'Registrar';
       case 'studentSupport':
@@ -540,8 +549,7 @@ const canStaffApproveDocument = async (staff, document) => {
       case 'health':
         return staff.department === 'Health Services';
       case 'departmentHead':
-        const studentDept = (await User.findById(document.owner)).department;
-        return staff.department === `${studentDept} HOD`;
+        return staff.department === `${studentDepartment} HOD`;
       default:
         return false;
     }
@@ -552,8 +560,10 @@ const canStaffApproveDocument = async (staff, document) => {
     case 'JAMB Result':
     case 'JAMB Admission':
     case 'WAEC':
-      // ONLY School Officer can approve these
-      return staff.department === 'School Officer';
+      // School officer can approve these if they manage the student's department
+      return staff.managedDepartments && 
+             staff.managedDepartments.includes(studentDepartment);
+             
     case 'Admission Letter':
       return staff.department === 'Registrar';
     case 'Birth Certificate':
@@ -564,13 +574,12 @@ const canStaffApproveDocument = async (staff, document) => {
     case 'Medical Report':
       return staff.department === 'Health Services';
     case 'Transcript':
-      const studentDept2 = (await User.findById(document.owner)).department;
-      return staff.department === `${studentDept2} HOD`;
+      return staff.department === `${studentDepartment} HOD`;
     default:
-      // Admin only for anything else
       return false;
   }
 };
+
 /**
  * Get documents that a staff member can approve
  * @route   GET /api/documents/staff/approvable
@@ -592,37 +601,42 @@ const getApprovableDocuments = async (req, res) => {
     } else {
       // For regular staff, filter by their approver role based on department
       let approverRoles = [];
-      let departmentFilter = {};
+      let documentFilter = {};
       
       switch (req.user.department) {
         case 'Registrar':
           approverRoles.push('deputyRegistrar');
-          departmentFilter = { documentType: 'Admission Letter' };
+          documentFilter = { documentType: 'Admission Letter' };
           break;
         case 'Student Support':
           approverRoles.push('studentSupport');
-          departmentFilter = { 
+          documentFilter = { 
             documentType: { $in: ['Birth Certificate', 'Passport'] } 
           };
           break;
         case 'Finance':
           approverRoles.push('finance');
-          departmentFilter = { documentType: 'Payment Receipt' };
+          documentFilter = { documentType: 'Payment Receipt' };
           break;
         case 'Health Services':
           approverRoles.push('health');
-          departmentFilter = { documentType: 'Medical Report' };
+          documentFilter = { documentType: 'Medical Report' };
+          break;
+        case 'School Officer':
+          // For school officers, they can see documents from students in their managed departments
+          approverRoles.push('schoolOfficer');
+          documentFilter = { 
+            documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } 
+          };
           break;
         default:
-          // For academic departments
+          // For academic departments with HOD
           if (req.user.department.includes('HOD')) {
             approverRoles.push('departmentHead');
-            departmentFilter = { documentType: 'Transcript' };
+            documentFilter = { documentType: 'Transcript' };
           } else {
-            approverRoles.push('schoolOfficer');
-            departmentFilter = { 
-              documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } 
-            };
+            // Other academic departments are likely regular staff with no approval roles
+            approverRoles = [];
           }
       }
       
@@ -631,22 +645,22 @@ const getApprovableDocuments = async (req, res) => {
         status: 'pending',
         $or: [
           { approverRole: { $in: approverRoles } },
-          departmentFilter
+          documentFilter
         ]
-      }).populate({
-        path: 'owner',
-        select: 'fullName email applicationId department',
-        match: req.user.department.includes('HOD') || 
-               !req.user.department.includes('Registrar') || 
-               !req.user.department.includes('Student Support') || 
-               !req.user.department.includes('Finance') || 
-               !req.user.department.includes('Health Services') 
-               ? { department: req.user.department.replace(' HOD', '') } 
-               : {}
-      });
+      }).populate('owner', 'fullName email applicationId department');
       
-      // Filter out null owners (those that didn't match the department)
-      documents = documents.filter(doc => doc.owner !== null);
+      // If this is a school officer, filter for students in their managed departments
+      if (req.user.department === 'School Officer' && req.user.managedDepartments && req.user.managedDepartments.length > 0) {
+        documents = documents.filter(doc => 
+          doc.owner && req.user.managedDepartments.includes(doc.owner.department)
+        );
+      } else if (req.user.department.includes('HOD')) {
+        // For HOD, filter for their specific department
+        const deptName = req.user.department.replace(' HOD', '');
+        documents = documents.filter(doc => 
+          doc.owner && doc.owner.department === deptName
+        );
+      }
     }
     
     res.json(documents);
