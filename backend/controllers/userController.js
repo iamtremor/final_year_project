@@ -17,6 +17,7 @@ const getUserProfile = async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       role: user.role,
+      department: user.department,
       createdAt: user.createdAt
     };
     

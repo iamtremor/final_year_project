@@ -49,11 +49,10 @@ const FormReviewPage = () => {
     console.log("Form type from URL:", typeParam);
     setFormType(typeParam);
     
-    // Check if this is just for viewing (already approved/rejected)
-    const viewMode = location.pathname.includes('view-form');
-    setIsViewOnly(viewMode);
+    // Since all links are to review-form/, always set to edit mode
+    setIsViewOnly(false);
+    
   }, [location.search, location.pathname]);
-
   // Fetch form data
   // When fetching the form data
 useEffect(() => {
@@ -169,7 +168,7 @@ const canApproveForm = () => {
         throw new Error('You do not have permission to approve this form');
       }
       
-      const response = await api.post(`/api/clearance/forms/${formId}/approve`, {
+      const response = await api.post(`/clearance/forms/${formId}/approve`, {
         formType,
         approvalType,
         comments
@@ -938,7 +937,12 @@ const canApproveForm = () => {
                    formType === 'personalRecord2' ? 'Family Information Form' :
                    formType === 'affidavit' ? 'Rules & Regulations Affidavit' :
                    'Student Form';
-
+                   console.log("Render values:", { 
+                    approvalType, 
+                    isViewOnly, 
+                    canApprove: canApproveForm(),
+                    pathname: location.pathname
+                  });
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -949,6 +953,12 @@ const canApproveForm = () => {
             {isViewOnly ? 'View' : 'Review'} {formTitle}
           </h2>
         </div>
+        <button 
+  onClick={() => setIsViewOnly(!isViewOnly)} 
+  className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+>
+  Toggle View Mode (Current: {isViewOnly ? "View Only" : "Can Edit"})
+</button>
         <button 
           onClick={() => navigate(-1)} 
           className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded flex items-center"
@@ -1021,7 +1031,7 @@ const canApproveForm = () => {
 
       {/* Approval actions - only show if not in view-only mode and staff can approve */}
       {/* Approval actions - only show if not in view-only mode and staff can approve */}
-{approvalType && !isViewOnly && (
+{approvalType && !isViewOnly && canApproveForm() && (
   <div className="bg-white rounded-lg shadow-md p-6">
     <h3 className="text-lg font-semibold mb-4">Verification Action</h3>
     
