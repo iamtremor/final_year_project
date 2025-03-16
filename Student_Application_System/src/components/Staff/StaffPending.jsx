@@ -424,7 +424,8 @@ const StaffPending = () => {
                   let viewLink, approveLink, rejectLink;
                   
                   if (isForm) {
-                    const formType = row.type || '';
+                    // Change this line to prioritize formType
+                    const formType = row.formType || row.type;
                     viewLink = `/staff/review-form/${itemId}?type=${formType}`;
                     approveLink = `/staff/review-form/${itemId}?type=${formType}`;
                     rejectLink = `/staff/review-form/${itemId}?type=${formType}`;
@@ -433,7 +434,7 @@ const StaffPending = () => {
                     approveLink = `/staff/review-document/${itemId}`;
                     rejectLink = `/staff/review-document/${itemId}`;
                   }
-
+              
                   return (
                     <div className="py-2 flex space-x-3">
                       <Link

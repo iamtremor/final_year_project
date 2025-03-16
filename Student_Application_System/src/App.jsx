@@ -134,7 +134,7 @@ function App() {
               <Route path="notifications" element={<StaffNotification />} />
               <Route path="profile" element={<StaffProfile />} />
               <Route path="review-document/:id" element={<DocumentReviewPage />} />
-              <Route path="review-form/:id" element={<FormReviewPage />} />
+              <Route path="review-form/:formId" element={<FormReviewPage />} />
             </Route>
           </Route>
 

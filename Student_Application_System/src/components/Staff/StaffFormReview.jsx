@@ -63,14 +63,14 @@ useEffect(() => {
       console.log(`Fetching form data for ID: ${formId}, Type: ${formType}`);
       
       // Fetch the specific form by ID
-      const response = await api.get(`/api/clearance/forms/${formId}?formType=${formType}`);
+      const response = await api.get(`/clearance/forms/${formId}?formType=${formType}`);
       console.log("Form data response:", response.data);
       setForm(response.data);
       
       // If studentId is just a string (not populated), fetch student details separately
       if (response.data.studentId && typeof response.data.studentId === 'string') {
         try {
-          const studentResponse = await api.get(`/api/users/profile/${response.data.studentId}`);
+          const studentResponse = await api.get(`/users/profile/${response.data.studentId}`);
           console.log("Student info response:", studentResponse.data);
           setStudentInfo(studentResponse.data);
         } catch (studentError) {
@@ -94,38 +94,50 @@ useEffect(() => {
   }
 }, [formId, formType]);
 
+const canApproveForm = () => {
+  if (!user || !form) return false;
+  
+  // For New Clearance Form
+  if (formType === 'newClearance') {
+    // Deputy Registrar specific approval logic
+    if (user.department === 'Registrar') {
+      // Check if the form is not already deputy registrar approved
+      return !form.deputyRegistrarApproved;
+    }
+    
+    // School Officer approval logic
+    if (user.department === form.studentId?.department) {
+      // Can approve if deputy registrar has already approved
+      return form.deputyRegistrarApproved && !form.schoolOfficerApproved;
+    }
+  }
+  
+  // For other form types, keep existing logic
+  if (['provAdmission', 'personalRecord', 'personalRecord2', 'affidavit'].includes(formType)) {
+    // Simple check - form not yet approved
+    return !form.approved;
+  }
+  
+  return false;
+};
   // Determine which approval type this staff member can perform
   const getApprovalType = () => {
-    if (!user || !form || isViewOnly) return null;
+    if (!user || !form) return null;
     
     if (formType === 'newClearance') {
       if (user.department === 'Registrar' && !form.deputyRegistrarApproved) {
         return 'deputyRegistrar';
-      } else if (user.department === form.studentId?.department && form.deputyRegistrarApproved && !form.schoolOfficerApproved) {
-        return 'schoolOfficer';
       }
-    } else if (formType === 'provAdmission') {
-      // For provisional admission form, find which role this staff has
-      const staffRole = getStaffRoleFromDepartment(user.department);
       
-      // Find if there's a matching approval that hasn't been done yet
-      if (form.approvals) {
-        const pendingApproval = form.approvals.find(
-          a => a.staffRole === staffRole && !a.approved
-        );
-        
-        if (pendingApproval) {
-          return staffRole;
-        }
-      }
-    } else {
-      // For other form types that just need a single approval
-      if (!form.approved) {
-        return 'general';
+      if (user.department === form.studentId?.department && 
+          form.deputyRegistrarApproved && 
+          !form.schoolOfficerApproved) {
+        return 'schoolOfficer';
       }
     }
     
-    return null;
+    // For other form types, return a generic approval type
+    return 'general';
   };
 
   // Helper function to get staff role from department
@@ -157,30 +169,30 @@ useEffect(() => {
         throw new Error('You do not have permission to approve this form');
       }
       
-      console.log(`Approving form: ${formId}, type: ${formType}, approvalType: ${approvalType}`);
-      
-      // Submit form approval
       const response = await api.post(`/api/clearance/forms/${formId}/approve`, {
         formType,
         approvalType,
         comments
       });
       
-      console.log("Approval response:", response.data);
       setSuccessMessage('Form approved successfully!');
       setSuccess(true);
       
-      // After successful approval, wait 2 seconds and redirect back to dashboard
       setTimeout(() => {
         navigate('/staff/dashboard');
       }, 2000);
     } catch (error) {
       console.error('Error approving form:', error);
-      setError('Failed to approve form. Please try again later.');
+      setError(
+        error.response?.data?.message || 
+        'Failed to approve form. Please try again later.'
+      );
     } finally {
       setSubmitting(false);
     }
   };
+  
+  // Similar changes for handleReject method
 
   // Handle rejection
   const handleReject = async () => {
@@ -201,7 +213,7 @@ useEffect(() => {
       console.log(`Rejecting form: ${formId}, type: ${formType}, approvalType: ${approvalType}`);
       
       // Submit form rejection
-      const response = await api.post(`/api/clearance/forms/${formId}/reject`, {
+      const response = await api.post(`/clearance/forms/${formId}/reject`, {
         formType,
         approvalType,
         comments
@@ -221,7 +233,25 @@ useEffect(() => {
       setSubmitting(false);
     }
   };
-
+  useEffect(() => {
+    console.log('Form Review Debug:', {
+      user: {
+        id: user?.id,
+        fullName: user?.fullName,
+        department: user?.department,
+        role: user?.role
+      },
+      form: form ? {
+        _id: form._id,
+        studentId: form.studentId,
+        deputyRegistrarApproved: form.deputyRegistrarApproved,
+        schoolOfficerApproved: form.schoolOfficerApproved
+      } : null,
+      formType,
+      canApprove: canApproveForm(),
+      approvalType: getApprovalType()
+    });
+  }, [user, form, formType]);
   // Render New Clearance Form details
   const renderNewClearanceForm = () => {
     if (!form) return null;
@@ -990,81 +1020,75 @@ useEffect(() => {
       </div>
 
       {/* Approval actions - only show if not in view-only mode and staff can approve */}
-      {approvalType && !isViewOnly && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold mb-4">Approval Action</h3>
-          
-          <div className="bg-blue-50 p-4 rounded-md mb-6 border border-blue-100">
-            <div className="flex items-start">
-              <FiInfo className="text-blue-500 mr-2 mt-1" />
-              <div>
-                <p className="font-medium text-blue-800">Approval Information</p>
-                <p className="text-sm text-blue-700 mt-1">
-                  {formType === 'newClearance' && approvalType === 'deputyRegistrar' && 
-                    "As a Deputy Registrar, your approval is required to verify the student's initial clearance form before School Officer review."
-                  }
-                  {formType === 'newClearance' && approvalType === 'schoolOfficer' && 
-                    "As a School Officer, your approval is required to complete the clearance process after the Deputy Registrar's verification."
-                  }
-                  {formType === 'provAdmission' && 
-                    `You're reviewing this form as the ${formatStaffRole(approvalType)}. Your approval is part of the multi-step provisional admission verification process.`
-                  }
-                  {(formType === 'personalRecord' || formType === 'personalRecord2' || formType === 'affidavit') && 
-                    "Your approval will validate this form, allowing the student to proceed with their enrollment."
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="mb-4">
-            <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-2">
-              Comments {approvalType && <span className="text-red-500">*</span>}
-              <span className="text-gray-500 text-xs ml-1">(Required for rejection, Optional for approval)</span>
-            </label>
-            <textarea
-              id="comments"
-              rows="3"
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter any comments about your decision..."
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-            />
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3 justify-end">
-            <button
-              onClick={handleReject}
-              disabled={submitting}
-              className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded flex items-center justify-center"
-            >
-              {submitting ? (
-                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-              ) : (
-                <>
-                  <FaTimesCircle className="mr-2" />
-                  Reject Form
-                </>
-              )}
-            </button>
-            
-            <button
-              onClick={handleApprove}
-              disabled={submitting}
-              className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center"
-            >
-              {submitting ? (
-                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-              ) : (
-                <>
-                  <FaCheckCircle className="mr-2" />
-                  Approve Form
-                </>
-              )}
-            </button>
-          </div>
+      {/* Approval actions - only show if not in view-only mode and staff can approve */}
+{approvalType && !isViewOnly && (
+  <div className="bg-white rounded-lg shadow-md p-6">
+    <h3 className="text-lg font-semibold mb-4">Verification Action</h3>
+    
+    {/* Approval Information Panel */}
+    <div className="bg-blue-50 p-4 rounded-md mb-6 border border-blue-100">
+      <div className="flex items-start">
+        <FiInfo className="text-blue-500 mr-2 mt-1" />
+        <div>
+          <p className="font-medium text-blue-800">Approval Information</p>
+          <p className="text-sm text-blue-700 mt-1">
+            {approvalType === 'deputyRegistrar' && 
+              "As a Deputy Registrar, you are reviewing the initial clearance form before School Officer review."}
+            {approvalType === 'schoolOfficer' && 
+              "As a School Officer, you are completing the clearance process after Deputy Registrar's verification."}
+          </p>
         </div>
-      )}
+      </div>
+    </div>
+    
+    <div className="mb-4">
+      <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-2">
+        Comments {approvalType && <span className="text-red-500">*</span>}
+        <span className="text-gray-500 text-xs ml-1">(Required for rejection, Optional for approval)</span>
+      </label>
+      <textarea
+        id="comments"
+        rows="3"
+        className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+        placeholder="Enter any comments about your verification decision..."
+        value={comments}
+        onChange={(e) => setComments(e.target.value)}
+      />
+    </div>
+    
+    <div className="flex flex-col sm:flex-row gap-3 justify-end">
+      <button
+        onClick={handleReject}
+        disabled={submitting}
+        className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded flex items-center justify-center"
+      >
+        {submitting ? (
+          <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+        ) : (
+          <>
+            <FaTimesCircle className="mr-2" />
+            Reject Form
+          </>
+        )}
+      </button>
+      
+      <button
+        onClick={handleApprove}
+        disabled={submitting}
+        className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center"
+      >
+        {submitting ? (
+          <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+        ) : (
+          <>
+            <FaCheckCircle className="mr-2" />
+            Approve Form
+          </>
+        )}
+      </button>
+    </div>
+  </div>
+)}
       
       {/* Staff notes section - shows only in view mode for already approved or rejected forms */}
       {isViewOnly && form && (form.comments || form.feedback) && (

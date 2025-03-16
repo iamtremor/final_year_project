@@ -199,7 +199,7 @@ const formsColumns = [
     cell: row => (
       <Link 
         // The key change is here - use the actual formType value, not just "forms"
-        to={`/staff/review-form/${row._id}?type=${row.formType || 'newClearance'}`}
+        to={`/staff/review-form/${row._id}?type=${row.formType}`}
         className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
       >
         Review
