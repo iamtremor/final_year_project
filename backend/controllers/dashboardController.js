@@ -323,7 +323,7 @@ const calculateCompletionPercentage = (clearanceStatus) => {
  */
 const getStaffStats = async (staff) => {
   const department = staff.department;
-  const role = staff.role;
+  const staffId = staff._id;
   
   // Initialize stats
   const stats = {
@@ -340,15 +340,24 @@ const getStaffStats = async (staff) => {
   
   // Get students in the department (for academic staff)
   if (!['Registrar', 'Student Support', 'Finance', 'Health Services', 'Library'].includes(department)) {
-    // It's an academic department
-    stats.studentsInDepartment = await User.countDocuments({ 
-      role: 'student', 
-      department: department.replace(' HOD', '') // Remove HOD if present
-    });
+    // For academic departments, count students they manage
+    if (staff.managedDepartments && staff.managedDepartments.length > 0) {
+      stats.studentsInDepartment = await User.countDocuments({ 
+        role: 'student', 
+        department: { $in: staff.managedDepartments }
+      });
+    } else {
+      // Default to their own department
+      stats.studentsInDepartment = await User.countDocuments({ 
+        role: 'student', 
+        department: department.replace(' HOD', '') // Remove HOD if present
+      });
+    }
   }
   
   // Count pending document approvals based on staff role
   let documentFilter = {};
+  let studentFilter = {};
   
   switch (department) {
     case 'Registrar':
@@ -364,22 +373,24 @@ const getStaffStats = async (staff) => {
       documentFilter = { documentType: 'Medical Report' };
       break;
     default:
-      // For academic departments
+      // For academic departments/school officers
       if (department.includes('HOD')) {
         documentFilter = { documentType: 'Transcript' };
-      } else {
-        documentFilter = { documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } };
-        
-        // For school officers, only count students in their department
+        // Get only students in their department
         const departmentWithoutHOD = department.replace(' HOD', '');
-        const studentsInDept = await User.find({ 
-          role: 'student', 
-          department: departmentWithoutHOD 
-        });
-        
-        const studentIds = studentsInDept.map(s => s._id);
-        documentFilter.owner = { $in: studentIds };
+        studentFilter = { department: departmentWithoutHOD };
+      } else if (staff.managedDepartments && staff.managedDepartments.length > 0) {
+        // School officer with managed departments
+        documentFilter = { documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } };
+        studentFilter = { department: { $in: staff.managedDepartments } };
       }
+  }
+  
+  // Apply student filter to document filter if needed
+  if (Object.keys(studentFilter).length > 0) {
+    const students = await User.find({ role: 'student', ...studentFilter });
+    const studentIds = students.map(s => s._id);
+    documentFilter.owner = { $in: studentIds };
   }
   
   // Count pending document approvals
@@ -392,52 +403,75 @@ const getStaffStats = async (staff) => {
     stats.completedApprovals.documents = await Document.countDocuments({
       ...documentFilter,
       status: 'approved',
-      reviewedBy: staff._id
+      reviewedBy: staffId
     });
   }
   
   // Count pending form approvals
   if (department === 'Registrar') {
-    // Count forms needing deputy registrar approval
+    // For Deputy Registrar: Count New Clearance Forms needing their approval
     stats.pendingApprovals.forms = await NewClearanceForm.countDocuments({
-      deputyRegistrarApproved: false
+      deputyRegistrarApproved: false,
+      submitted: true
+    });
+    
+    // Count forms approved by this staff member
+    stats.completedApprovals.forms = await NewClearanceForm.countDocuments({
+      deputyRegistrarApproved: true,
+      // We need a way to track which staff approved - this might need schema update
+      // For now, just count all approved forms
     });
   } else if (!department.includes('HOD') && 
-             !['Student Support', 'Finance', 'Health Services', 'Library'].includes(department)) {
-    // School officer approvals for new clearance forms
-    const departmentWithoutHOD = department.replace(' HOD', '');
-    const studentsInDept = await User.find({ 
-      role: 'student', 
-      department: departmentWithoutHOD 
-    });
+             !['Registrar', 'Student Support', 'Finance', 'Health Services', 'Library'].includes(department)) {
+    // For School Officer: Count forms needing their approval
     
-    const studentIds = studentsInDept.map(s => s._id);
+    // Get students in managed departments
+    let studentIds = [];
+    if (staff.managedDepartments && staff.managedDepartments.length > 0) {
+      const students = await User.find({ 
+        role: 'student', 
+        department: { $in: staff.managedDepartments } 
+      });
+      studentIds = students.map(s => s._id);
+    }
     
-    stats.pendingApprovals.forms = await NewClearanceForm.countDocuments({
-      studentId: { $in: studentIds },
-      deputyRegistrarApproved: true,
-      schoolOfficerApproved: false
-    });
+    if (studentIds.length > 0) {
+      // Count New Clearance Forms for these students that need School Officer approval
+      stats.pendingApprovals.forms = await NewClearanceForm.countDocuments({
+        studentId: { $in: studentIds },
+        deputyRegistrarApproved: true,
+        schoolOfficerApproved: false,
+        submitted: true
+      });
+      
+      // Count forms approved by this School Officer
+      stats.completedApprovals.forms = await NewClearanceForm.countDocuments({
+        studentId: { $in: studentIds },
+        schoolOfficerApproved: true
+      });
+    }
   }
   
-  // For provisional admission form approvals, count by staff role
+  // Count Provisional Admission forms based on staff role
   const staffRole = getStaffRoleFromDepartment(department);
   
-  const provApprovalCount = await ProvAdmissionForm.countDocuments({
+  // Count pending Provisional Admission forms
+  const provPendingCount = await ProvAdmissionForm.countDocuments({
     submitted: true,
-    approved: false,
     'approvals.staffRole': staffRole,
     'approvals.approved': false
   });
   
-  stats.pendingApprovals.forms += provApprovalCount;
+  stats.pendingApprovals.forms += provPendingCount;
   
-  // Count forms where this staff member is the approver
-  stats.completedApprovals.forms = await ProvAdmissionForm.countDocuments({
+  // Count approved Provisional Admission forms
+  const provApprovedCount = await ProvAdmissionForm.countDocuments({
     'approvals.staffRole': staffRole,
-    'approvals.staffId': staff._id,
+    'approvals.staffId': staffId,
     'approvals.approved': true
   });
+  
+  stats.completedApprovals.forms += provApprovedCount;
   
   return stats;
 };

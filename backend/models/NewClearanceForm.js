@@ -22,19 +22,39 @@ const NewClearanceFormSchema = new mongoose.Schema({
     type: Boolean,
     default: true  // Default to true when a form is created
   },
+  // Add overall approval state
+  approved: {
+    type: Boolean,
+    default: false
+  },
   schoolOfficerApproved: {
     type: Boolean,
     default: false
   },
+  schoolOfficerApprovedDate: Date,
+  schoolOfficerApprovedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  schoolOfficerComments: String,
   deputyRegistrarApproved: {
     type: Boolean,
     default: false
   },
+  deputyRegistrarApprovedDate: Date,
+  deputyRegistrarApprovedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  deputyRegistrarComments: String,
   submittedDate: {
     type: Date,
     default: Date.now
   },
-  approvedDate: Date
+  approvedDate: Date,
+  // Add blockchain tracking fields
+  blockchainTxHash: String,
+  blockchainBlockNumber: Number
 });
 
 module.exports = mongoose.model('NewClearanceForm', NewClearanceFormSchema);

@@ -29,7 +29,7 @@ async function updateUserDepartment() {
     console.log('Connected to MongoDB');
     
     // Find and update the user
-    const userId = "67d0688d1f7615cb3859a82a";
+    const userId = "67d5283299ec9c11957aefaa";
     const newDepartment = "Computer Science"; // Set this to match your School Officer's department
     
     const updatedUser = await User.findByIdAndUpdate(
