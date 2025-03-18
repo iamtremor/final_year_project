@@ -386,6 +386,7 @@ const loginStaff = async (req, res) => {
         staffId: user.staffId,
         phoneNumber: user.phoneNumber,
         department: user.department,
+        managedDepartments: user.managedDepartments,
         dateOfBirth: user.dateOfBirth,
         role: user.role,
         blockchainRegistered: !!user.blockchainTxHash

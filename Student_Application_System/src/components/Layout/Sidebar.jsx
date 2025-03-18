@@ -5,7 +5,7 @@ import { AiOutlineCloudUpload } from "react-icons/ai";
 import { IoMdNotificationsOutline, IoIosArrowForward } from "react-icons/io";
 import { HiOutlineDocumentSearch, HiOutlineClock } from "react-icons/hi";
 import { FaUsers, FaTasks, FaRegTimesCircle, FaFileAlt, FaClipboardList } from "react-icons/fa";
-import { FiFileText, FiCheckCircle, FiClock,FiXCircle, FiCircle } from "react-icons/fi";
+import { FiFileText, FiCheckCircle, FiClock, FiXCircle, FiCircle } from "react-icons/fi";
 import { MdOutlineSpaceDashboard, MdOutlineCampaign } from "react-icons/md";
 import { CiSettings } from "react-icons/ci";
 import { IoBarChart } from "react-icons/io5";
@@ -80,15 +80,14 @@ const Sidebar = ({ role }) => {
       },
       {
         path: "/staff/approved",
-        name: "Approved Documents",
+        name: "Approved Items",
         icon: FiCheckCircle,
       },
       {
         path: "/staff/rejected",
-        name: "Rejected Documents",
+        name: "Rejected Items",
         icon: FiXCircle,
       },
-     
       {
         path: "/staff/notifications",
         name: "Notifications",

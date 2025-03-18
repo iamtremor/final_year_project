@@ -35,15 +35,15 @@ import PersonalRecordForm from "./components/Students/Dashboard/Forms/PersonalRe
 import PersonalRecord2Form from "./components/Students/Dashboard/Forms/PersonalRecord2Form";
 import AffidavitForm from "./components/Students/Dashboard/Forms/AffidavitForm";
 
-// Staff components
+// Updated Staff components
 import StaffDashboard from "./components/Staff/Dashboard/Dashboard";
-import StaffApproved from "./components/Staff/StaffApproved";
-import StaffRejected from "./components/Staff/StaffRejected";
-import StaffPending from "./components/Staff/StaffPending";
-import StaffNotification from "./components/Staff/Notification/Notifications";
-import StaffProfile from "./components/Staff/StaffProfile";
-import DocumentReviewPage from "./components/Staff/StaffDocumentReview"
-import FormReviewPage from "./components/Staff/StaffFormReview"
+import StaffPendingApprovals from "./components/Staff/PendingApprovals/PendingApprovals";
+import DocumentReview from "./components/Staff/Documents/DocumentReview";
+import FormReview from "./components/Staff/Forms/FormReview";
+import StaffNotifications from "./components/Staff/Notifications/Notifications";
+import StaffProfile from "./components/Staff/Profile/Profile";
+import { StaffApproved, StaffRejected } from "./components/Staff/Documents/ApprovedRejected";
+
 // Admin components
 import AdminDashboard from "./components/Admin/Dashboard/Dashboard";
 import ManageUsers from "./components/Admin/ManageUsers/ManageUsers";
@@ -114,7 +114,7 @@ function App() {
             </Route>
           </Route>
 
-          {/* Protected Staff Routes */}
+          {/* Protected Staff Routes - Updated */}
           <Route 
             element={
               <ProtectedRoute 
@@ -130,11 +130,11 @@ function App() {
               <Route path="dashboard" element={<StaffDashboard />} />
               <Route path="approved" element={<StaffApproved />} />
               <Route path="rejected" element={<StaffRejected />} />
-              <Route path="pending-approvals" element={<StaffPending />} />
-              <Route path="notifications" element={<StaffNotification />} />
+              <Route path="pending-approvals" element={<StaffPendingApprovals />} />
+              <Route path="notifications" element={<StaffNotifications />} />
               <Route path="profile" element={<StaffProfile />} />
-              <Route path="review-document/:id" element={<DocumentReviewPage />} />
-              <Route path="review-form/:formId" element={<FormReviewPage />} />
+              <Route path="review-document/:id" element={<DocumentReview />} />
+              <Route path="review-form/:formId" element={<FormReview />} />
             </Route>
           </Route>
 

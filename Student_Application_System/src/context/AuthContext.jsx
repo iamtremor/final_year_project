@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }) => {
   // Login function for any role
   const login = async (credentials, role) => {
     try {
-      const response = await axios.post(`/api/auth/${role}/login`, credentials);
+      const response = await api.post(`/auth/${role}/login`, credentials);
       
       // Store token and user data
       localStorage.setItem('token', response.data.token);
@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }) => {
   // Register function for any role
   const register = async (userData, role) => {
     try {
-      const response = await axios.post(`/api/auth/${role}/register`, userData);
+      const response = await api.post(`/auth/${role}/register`, userData);
       
       // Store token and user data
       localStorage.setItem('token', response.data.token);
@@ -111,7 +111,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
     
     // Clear axios default header
-    delete axios.defaults.headers.common['Authorization'];
+    delete api.defaults.headers.common['Authorization'];
     
     // Clear user state
     setUser(null);
