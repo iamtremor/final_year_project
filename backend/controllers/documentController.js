@@ -495,8 +495,10 @@ const canStaffApproveDocument = async (staff, document) => {
     });
     
     // Check for School Officer with managed departments
-    const isSchoolOfficer = !staff.department.includes('HOD') && 
-                            !['Registrar', 'Student Support', 'Finance', 'Health Services', 'Library'].includes(staff.department);
+    // Updated to explicitly check for 'School Officer' department
+    const isSchoolOfficer = staff.department === 'School Officer' || 
+                      (!staff.department.includes('HOD') && 
+                      !['Registrar', 'Student Support', 'Finance', 'Health Services', 'Library'].includes(staff.department));
     
     // For School Officers: Check if they can approve JAMB/WAEC documents
     if (isSchoolOfficer && 
@@ -531,6 +533,10 @@ const canStaffApproveDocument = async (staff, document) => {
         // HOD can approve transcripts
         const hodDept = staff.department.replace(' HOD', '');
         return hodDept === studentDepartment;
+      
+      case 'Affidavit':
+        // Add support for Affidavit documents
+        return staff.department === 'Legal';
         
       default:
         // Unknown document type
@@ -583,21 +589,27 @@ const getApprovableDocuments = async (req, res) => {
           approverRoles.push('health');
           documentFilter = { documentType: 'Medical Report' };
           break;
-        case 'School Officer':
-          // For school officers, they can see documents from students in their managed departments
-          approverRoles.push('schoolOfficer');
-          documentFilter = { 
-            documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } 
-          };
+        case 'Legal':
+          approverRoles.push('legal');
+          documentFilter = { documentType: 'Affidavit' };
           break;
+          case 'School Officer':
+            approverRoles.push('schoolOfficer');
+            documentFilter = { 
+              documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } 
+            };
+            break;
         default:
           // For academic departments with HOD
           if (req.user.department.includes('HOD')) {
             approverRoles.push('departmentHead');
             documentFilter = { documentType: 'Transcript' };
           } else {
-            // Other academic departments are likely regular staff with no approval roles
-            approverRoles = [];
+            // Other departments might be School Officers with different names
+            approverRoles.push('schoolOfficer');
+            documentFilter = { 
+              documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } 
+            };
           }
       }
       
@@ -630,6 +642,21 @@ const getApprovableDocuments = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Fix 5: Update ProvAdmissionForm creation to handle all required staff roles
+// In clearanceController.js, update submitProvAdmissionForm function:
+
+// Define the approval roles needed for this form
+const approvalRoles = [
+  'schoolOfficer',
+  'deputyRegistrar',
+  'departmentHead',
+  'studentSupport',
+  'finance',
+  'library',
+  'health',
+  'legal'  // Add the Legal department role
+];
 
 /**
  * Get completed clearances for reporting

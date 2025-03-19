@@ -30,7 +30,7 @@ async function updateUserDepartment() {
     
     // Find and update the user
     const userId = "67d5283299ec9c11957aefaa";
-    const newDepartment = "Computer Science"; // Set this to match your School Officer's department
+    const newDepartment = "HOD"; // Set this to match your School Officer's department
     
     const updatedUser = await User.findByIdAndUpdate(
       userId,

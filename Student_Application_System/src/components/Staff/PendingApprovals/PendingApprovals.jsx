@@ -13,6 +13,7 @@ const StaffPendingApprovals = () => {
 
   useEffect(() => {
     const fetchPendingItems = async () => {
+      if (!user) return;
       try {
         setLoading(true);
         setError(null);
@@ -27,14 +28,14 @@ const StaffPendingApprovals = () => {
         const filteredForms = formsResponse.data.forms.filter(form => {
           // For New Clearance Forms
           if (form.type === 'newClearance') {
-            if (user.department === 'Registrar' && !form.deputyRegistrarApproved) {
+            if (user?.department === 'Registrar' && !form.deputyRegistrarApproved) {
               return true;
             }
-            if (!user.department.includes('HOD') && 
+            if (user?.department && !user.department.includes('HOD') && 
                 !['Registrar', 'Student Support', 'Finance', 'Health Services', 'Library'].includes(user.department) &&
                 !form.schoolOfficerApproved) {
               // Check if staff manages the student's department
-              if (user.managedDepartments && form.studentId && form.studentId.department) {
+              if (user?.managedDepartments && form.studentId && form.studentId.department) {
                 return user.managedDepartments.includes(form.studentId.department);
               }
             }

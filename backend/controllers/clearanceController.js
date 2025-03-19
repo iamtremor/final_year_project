@@ -248,8 +248,8 @@ const getPendingForms = async (req, res) => {
         }))
       );
     } 
-    // For School Officer - Get New Clearance Forms for students in their managed departments
-    else if (managedDepartments.length > 0) {
+    // For School Officers
+    else if (staffDepartment === 'School Officer' && managedDepartments.length > 0) {
       // Find students in these departments
       const studentsInManagedDepts = await User.find({ 
         role: 'student', 
@@ -307,22 +307,191 @@ const getPendingForms = async (req, res) => {
         );
       }
     }
-    // Handle other staff roles (departmentHead, studentSupport, finance, library, health)
+    // For Department Heads (HOD)
+    else if (staffDepartment.includes('HOD')) {
+      const departmentName = staffDepartment.replace(' HOD', '');
+      
+      // Find students in this department
+      const studentsInDept = await User.find({
+        role: 'student',
+        department: departmentName
+      });
+      
+      const studentIds = studentsInDept.map(s => s._id);
+      
+      console.log(`HOD manages department: ${departmentName}`);
+      console.log(`Found ${studentIds.length} students in department`);
+      
+      if (studentIds.length > 0) {
+        // Get Provisional Admission Forms that need Department Head approval
+        const staffRole = 'departmentHead';
+        const pendingProvForms = await ProvAdmissionForm.find({
+          studentId: { $in: studentIds },
+          submitted: true,
+          approved: false,
+          'approvals.staffRole': staffRole,
+          'approvals.approved': false
+        }).populate('studentId', 'fullName email department');
+        
+        console.log(`Found ${pendingProvForms.length} provisional admission forms pending Department Head approval`);
+        
+        pendingForms = pendingForms.concat(
+          pendingProvForms.map(form => ({
+            ...form.toObject(),
+            type: 'provAdmission',
+            id: form._id,
+            formName: 'Provisional Admission Form',
+            studentName: form.studentId?.fullName || form.studentName,
+            studentDepartment: form.studentId?.department
+          }))
+        );
+      }
+    }
+    // For staff managing managed departments but not School Officer
+    else if (managedDepartments.length > 0 && 
+             !['Registrar', 'Student Support', 'Finance', 'Health Services', 'Library', 'Legal'].includes(staffDepartment)) {
+      
+      // Find students in managed departments
+      const studentsInManagedDepts = await User.find({ 
+        role: 'student', 
+        department: { $in: managedDepartments }
+      });
+      
+      const studentIds = studentsInManagedDepts.map(s => s._id);
+      
+      console.log(`Staff manages departments: ${managedDepartments.join(', ')}`);
+      console.log(`Found ${studentIds.length} students in managed departments`);
+      
+      if (studentIds.length > 0) {
+        const pendingForms = await NewClearanceForm.find({
+          studentId: { $in: studentIds },
+          deputyRegistrarApproved: true,
+          schoolOfficerApproved: false,
+          submitted: true
+        }).populate('studentId', 'fullName email department');
+        
+        pendingForms = pendingForms.concat(
+          pendingForms.map(form => ({
+            ...form.toObject(),
+            type: 'newClearance',
+            id: form._id,
+            formName: 'New Clearance Form',
+            studentName: form.studentId?.fullName || form.studentName,
+            studentDepartment: form.studentId?.department
+          }))
+        );
+        
+        // Get Provisional Admission Forms
+        const pendingProvForms = await ProvAdmissionForm.find({
+          studentId: { $in: studentIds },
+          submitted: true,
+          approved: false,
+          'approvals.staffRole': 'schoolOfficer',
+          'approvals.approved': false
+        }).populate('studentId', 'fullName email department');
+        
+        pendingForms = pendingForms.concat(
+          pendingProvForms.map(form => ({
+            ...form.toObject(),
+            type: 'provAdmission',
+            id: form._id,
+            formName: 'Provisional Admission Form',
+            studentName: form.studentId?.fullName || form.studentName,
+            studentDepartment: form.studentId?.department
+          }))
+        );
+      }
+    }
+    // Handle other staff roles (studentSupport, finance, library, health, legal)
     else {
       // Map department to staff role
       let staffRole;
       switch(staffDepartment) {
-        case 'Student Support': staffRole = 'studentSupport'; break;
-        case 'Finance': staffRole = 'finance'; break;
-        case 'Library': staffRole = 'library'; break;
-        case 'Health Services': staffRole = 'health'; break;
+        case 'Student Support': 
+          staffRole = 'studentSupport'; 
+          break;
+        case 'Finance': 
+          staffRole = 'finance'; 
+          break;
+        case 'Library': 
+          staffRole = 'library'; 
+          break;
+        case 'Health Services': 
+          staffRole = 'health'; 
+          break;
+        case 'Legal': 
+          staffRole = 'legal'; 
+          break;
         default:
-          if (staffDepartment.includes('HOD')) {
-            staffRole = 'departmentHead';
-          }
+          staffRole = null;
       }
       
       if (staffRole) {
+        console.log(`Handling staff role: ${staffRole} for department ${staffDepartment}`);
+        
+        // For Student Support, also check for Personal Record Forms
+        if (staffDepartment === 'Student Support') {
+          const personalRecordForms = await PersonalRecordForm.find({
+            submitted: true,
+            approved: false
+          }).populate('studentId', 'fullName email department');
+          
+          console.log(`Found ${personalRecordForms.length} personal record forms pending Student Support approval`);
+          
+          pendingForms = pendingForms.concat(
+            personalRecordForms.map(form => ({
+              ...form.toObject(),
+              type: 'personalRecord',
+              id: form._id,
+              formName: 'Personal Record Form',
+              studentName: form.studentId?.fullName || form.fullName,
+              studentDepartment: form.studentId?.department || form.department
+            }))
+          );
+        }
+        
+        // For Registrar, also check for Personal Record Part 2 Forms
+        if (staffDepartment === 'Registrar') {
+          const personalRecord2Forms = await PersonalRecord2Form.find({
+            submitted: true,
+            approved: false
+          }).populate('studentId', 'fullName email department');
+          
+          console.log(`Found ${personalRecord2Forms.length} personal record part 2 forms pending Registrar approval`);
+          
+          pendingForms = pendingForms.concat(
+            personalRecord2Forms.map(form => ({
+              ...form.toObject(),
+              type: 'personalRecord2',
+              id: form._id,
+              formName: 'Personal Record Form Part 2',
+              studentName: form.studentId?.fullName || 'Unknown',
+              studentDepartment: form.studentId?.department || 'Unknown'
+            }))
+          );
+        }
+        
+        // For Legal, check for Affidavit Forms
+        if (staffDepartment === 'Legal') {
+          const affidavitForms = await AffidavitForm.find({
+            submitted: true,
+            approved: false
+          }).populate('studentId', 'fullName email department');
+          
+          console.log(`Found ${affidavitForms.length} affidavit forms pending Legal approval`);
+          
+          pendingForms = pendingForms.concat(
+            affidavitForms.map(form => ({
+              ...form.toObject(),
+              type: 'affidavit',
+              id: form._id,
+              formName: 'Affidavit Form',
+              studentName: form.studentId?.fullName || form.studentName,
+              studentDepartment: form.studentId?.department || form.department
+            }))
+          );
+        }
+        
         // Get Provisional Admission Forms for this role
         const pendingProvForms = await ProvAdmissionForm.find({
           submitted: true,
@@ -340,7 +509,7 @@ const getPendingForms = async (req, res) => {
             id: form._id,
             formName: 'Provisional Admission Form',
             studentName: form.studentId?.fullName || form.studentName,
-            studentDepartment: form.studentId?.department
+            studentDepartment: form.studentId?.department || form.department
           }))
         );
       }
@@ -367,7 +536,6 @@ const getPendingForms = async (req, res) => {
     });
   }
 };
-
 /**
  * Get all forms for a specific student (for staff/admin)
  * @route   GET /api/clearance/forms/student/:studentId
@@ -512,6 +680,10 @@ const getStaffRoleFromDepartment = (department) => {
       return 'library';
     case 'Health Services':
       return 'health';
+    case 'Legal':
+      return 'legal';
+    case 'School Officer':
+      return 'schoolOfficer';
     default:
       // For academic departments, assume school officer or department head
       return department.includes('HOD') ? 'departmentHead' : 'schoolOfficer';
@@ -1133,38 +1305,61 @@ const approveForm = async (req, res) => {
         
         // Find next staff member who needs to approve and notify them
         const pendingApprovals = form.approvals.filter(a => !a.approved);
-        if (pendingApprovals.length > 0) {
-          const nextRole = pendingApprovals[0].staffRole;
-          
-          // Map role to department
-          let nextDepartment;
-          switch (nextRole) {
-            case 'deputyRegistrar': nextDepartment = 'Registrar'; break;
-            case 'studentSupport': nextDepartment = 'Student Support'; break;
-            case 'finance': nextDepartment = 'Finance'; break;
-            case 'health': nextDepartment = 'Health Services'; break;
-            case 'library': nextDepartment = 'Library'; break;
-            case 'departmentHead': nextDepartment = `${student.department} HOD`; break;
-            case 'schoolOfficer': 
-              // Find school officers who manage this student's department
-              const schoolOfficers = await User.find({
-                role: 'staff',
-                managedDepartments: { $in: [student.department] }
-              });
-              
-              if (schoolOfficers.length > 0) {
-                // Create notification for the first school officer found
-                const nextStaffNotification = new Notification({
-                  title: 'Provisional Admission Form Needs Review',
-                  description: `A Provisional Admission Form for ${student.fullName} needs your review.`,
-                  recipient: schoolOfficers[0]._id,
-                  status: 'info',
-                  type: 'form_submission'
-                });
-                await nextStaffNotification.save();
-              }
-              break;
-          }
+if (pendingApprovals.length > 0) {
+  const nextRole = pendingApprovals[0].staffRole;
+  
+  // Map role to department
+  let nextDepartment;
+  switch (nextRole) {
+    case 'deputyRegistrar': nextDepartment = 'Registrar'; break;
+    case 'studentSupport': nextDepartment = 'Student Support'; break;
+    case 'finance': nextDepartment = 'Finance'; break;
+    case 'health': nextDepartment = 'Health Services'; break;
+    case 'library': nextDepartment = 'Library'; break;
+    case 'legal': nextDepartment = 'Legal'; break;
+    case 'departmentHead': nextDepartment = `${student.department} HOD`; break;
+    case 'schoolOfficer': 
+      // Find school officers who manage this student's department
+      const schoolOfficers = await User.find({
+        role: 'staff',
+        department: 'School Officer',
+        managedDepartments: { $in: [student.department] }
+      });
+      
+      if (schoolOfficers.length > 0) {
+        // Create notification for the first school officer found
+        const nextStaffNotification = new Notification({
+          title: 'Provisional Admission Form Needs Review',
+          description: `A Provisional Admission Form for ${student.fullName} needs your review.`,
+          recipient: schoolOfficers[0]._id,
+          status: 'info',
+          type: 'form_submission'
+        });
+        await nextStaffNotification.save();
+      }
+      break;
+  }
+  
+  if (nextDepartment) {
+    // Find staff member in that department
+    const nextStaff = await User.findOne({
+      role: 'staff',
+      department: nextDepartment
+    });
+    
+    if (nextStaff) {
+      // Create notification for next staff member
+      const nextStaffNotification = new Notification({
+        title: 'Provisional Admission Form Needs Review',
+        description: `A Provisional Admission Form for ${student.fullName} needs your review.`,
+        recipient: nextStaff._id,
+        status: 'info',
+        type: 'form_submission'
+      });
+      await nextStaffNotification.save();
+    }
+  }
+
           
           if (nextDepartment) {
             // Find staff member in that department
