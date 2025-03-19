@@ -1,9 +1,32 @@
+/* Add these to your index.css file */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body{
-   
-    color: rgb(0, 0, 0);
-    background-color: rgb(255, 255, 255);
+body {
+  color: rgb(0, 0, 0);
+  background-color: rgb(255, 255, 255);
+  overflow-x: hidden;
+}
+
+/* These classes can help with the layout */
+@layer components {
+  .page-container {
+    @apply min-h-screen flex flex-col;
+  }
+  
+  .main-content {
+    @apply flex-1 transition-all duration-300 lg:ml-64 p-4;
+  }
+  
+  /* Hide scrollbar while allowing scroll functionality if needed */
+  .hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
 }

@@ -23,13 +23,13 @@ const Layout = ({ role }) => {
   }
 
   return (
-    <div className="layout-content">
-      <Navbar role={role} userName={userName} appId={appId} />
-      <div className="layout-content">
-        <Sidebar role={role} />
-        <div className="page-content ml-[80px] lg:ml-[15.5rem] my-4">
+    <div className="flex flex-col min-h-screen">
+      <Sidebar role={role} />
+      <div className="flex flex-col flex-1">
+        <Navbar role={role} userName={userName} appId={appId} />
+        <main className="flex-1 transition-all duration-300 lg:ml-64 ml-0 p-4">
           <Outlet />
-        </div>
+        </main>
       </div>
     </div>
   );

@@ -2,17 +2,14 @@ import React, { useState } from "react";
 import Logo from "../../assets/logo.png";
 import { Link, useLocation } from "react-router-dom";
 import { AiOutlineCloudUpload } from "react-icons/ai";
-import { IoMdNotificationsOutline, IoIosArrowForward } from "react-icons/io";
+import { IoMdNotificationsOutline } from "react-icons/io";
 import { HiOutlineDocumentSearch, HiOutlineClock } from "react-icons/hi";
-import { FaUsers, FaTasks, FaRegTimesCircle, FaFileAlt, FaClipboardList } from "react-icons/fa";
-import { FiFileText, FiCheckCircle, FiClock, FiXCircle, FiCircle } from "react-icons/fi";
+import { FaUsers, FaTasks, FaRegTimesCircle } from "react-icons/fa";
+import { FiFileText, FiCheckCircle, FiClock, FiXCircle, FiChevronDown } from "react-icons/fi";
 import { MdOutlineSpaceDashboard, MdOutlineCampaign } from "react-icons/md";
 import { CiSettings } from "react-icons/ci";
 import { IoBarChart } from "react-icons/io5";
-import { MdArrowDropDown, MdMenu, MdClose } from "react-icons/md";
-import { FaSortUp } from "react-icons/fa";
-
-import { FiChevronDown } from "react-icons/fi";
+import { MdMenu, MdClose } from "react-icons/md";
 
 const Sidebar = ({ role }) => {
   const location = useLocation();
@@ -168,13 +165,19 @@ const Sidebar = ({ role }) => {
   };
 
   return (
-    <div className="flex">
-      {/* Sidebar (Fully Hides When Closed) */}
-      <div
-        className={`fixed top-0 left-0 h-full w-[250px] bg-[#1E3A8A] text-gray-300 transition-transform duration-300 z-50
-        ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0`}
+    <>
+      {/* Mobile Toggle Button - moved closer to edge and lower */}
+      <button 
+        className="fixed top-3 left-2 z-50 lg:hidden bg-blue-900 text-white p-1.5 rounded-md"
+        onClick={toggleSidebar}
+      >
+        {sidebarOpen ? <MdClose size={20} /> : <MdMenu size={20} />}
+      </button>
+
+      {/* Sidebar */}
+      <aside 
+        className={`fixed top-0 left-0 h-full w-64 bg-[#1E3A8A] text-gray-300 transition-transform duration-300 z-40
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
       >
         {/* Sidebar Header */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-gray-400">
@@ -182,92 +185,84 @@ const Sidebar = ({ role }) => {
             <img src={Logo} alt="logo" className="w-12 h-12" />
             <h1 className="text-lg font-semibold">SAS</h1>
           </div>
-          {/* Close button (only on small screens) */}
-          <button className="text-white lg:hidden" onClick={toggleSidebar}>
-            <MdClose size={24} />
-          </button>
         </div>
 
-        {/* Sidebar Links */}
-        <ul className="mt-6 px-4 space-y-3">
-          {role &&
-            sidebarLinks[role]?.map((item, index) => (
-              <li key={item.path || index}>
-                {item.subLinks ? (
-                  <>
-                    {/* Parent Link */}
-                    <button
-                      className={`flex items-center justify-between w-full px-4 py-3 rounded-md text-[13px] font-normal
+        {/* Sidebar Links - removed overflow-y-auto */}
+        <div className="h-[calc(100vh-64px)]">
+          <ul className="mt-6 px-4 space-y-3">
+            {role &&
+              sidebarLinks[role]?.map((item, index) => (
+                <li key={item.path || index}>
+                  {item.subLinks ? (
+                    <>
+                      {/* Parent Link */}
+                      <button
+                        className={`flex items-center justify-between w-full px-4 py-3 rounded-md text-[13px] font-normal
+                        ${
+                          openSubMenu === index
+                            ? "bg-[#112969] text-white"
+                            : "hover:bg-[#1c316c] hover:text-white"
+                        }`}
+                        onClick={() => toggleSubMenu(index)}
+                      >
+                        <div className="flex items-center gap-3">
+                          {React.createElement(item.icon, { size: 20 })}
+                          <span>{item.name}</span>
+                        </div>
+                        <FiChevronDown 
+                          size={16} 
+                          className={`transform transition-transform duration-200 ${openSubMenu === index ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+
+                      {/* Submenu Links */}
+                      {openSubMenu === index && (
+                        <ul className="ml-6 mt-2 space-y-2">
+                          {item.subLinks.map((sub) => (
+                            <li key={sub.path}>
+                              <Link
+                                to={sub.path}
+                                className={`block px-4 py-2 text-[12px] rounded-md ${
+                                  activeLink === sub.path
+                                    ? "bg-[#112969] text-white"
+                                    : "hover:bg-[#1c316c] hover:text-white"
+                                }`}
+                              >
+                                {sub.name}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  ) : (
+                    <Link
+                      to={item.path}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-md text-[13px] font-normal
                       ${
-                        openSubMenu === index
+                        activeLink.startsWith(item.path)
                           ? "bg-[#112969] text-white"
                           : "hover:bg-[#1c316c] hover:text-white"
                       }`}
-                      onClick={() => toggleSubMenu(index)}
                     >
-                      <div className="flex items-center gap-3">
-                        {React.createElement(item.icon, { size: 20 })}
-                        <span>{item.name}</span>
-                      </div>
-                      <FiChevronDown size={16} />
-                    </button>
+                      {React.createElement(item.icon, { size: 20 })}
+                      <span>{item.name}</span>
+                    </Link>
+                  )}
+                </li>
+              ))}
+          </ul>
+        </div>
+      </aside>
 
-                    {/* Submenu Links */}
-                    {openSubMenu === index && (
-                      <ul className="ml-6 mt-2 space-y-2">
-                        {item.subLinks.map((sub) => (
-                          <li key={sub.path}>
-                            <Link
-                              to={sub.path}
-                              className={`block px-4 py-2 text-[12px] rounded-md ${
-                                activeLink === sub.path
-                                  ? "bg-[#112969] text-white"
-                                  : "hover:bg-[#1c316c] hover:text-white"
-                              }`}
-                            >
-                              {sub.name}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                ) : (
-                  <Link
-                    to={item.path}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-md text-[13px] font-normal
-                    ${
-                      activeLink.startsWith(item.path)
-                        ? "bg-[#112969] text-white"
-                        : "hover:bg-[#1c316c] hover:text-white"
-                    }`}
-                  >
-                    {React.createElement(item.icon, { size: 20 })}
-                    <span>{item.name}</span>
-                  </Link>
-                )}
-              </li>
-            ))}
-        </ul>
-      </div>
-
-      {/* Main Content (Expands When Sidebar Is Closed) */}
-      <div
-        className={`flex-1 transition-all duration-300 ${
-          sidebarOpen ? "ml-[250px]" : "ml-0"
-        } lg:ml-[250px]`}
-      >
-        {/* Sidebar Toggle Button (only on small screens) */}
-        {!sidebarOpen && (
-          <button
-            className="lg:hidden fixed top-12 left-[1.5rem] bg-blue-900 text-white p-2 rounded-md 0"
-            onClick={toggleSidebar}
-          >
-            <MdMenu size={24} />
-          </button>
-        )}
-      </div>
-    </div>
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+          onClick={toggleSidebar}
+        ></div>
+      )}
+    </>
   );
 };
 
