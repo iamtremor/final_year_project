@@ -224,7 +224,7 @@ const Sidebar = ({ role }) => {
 
         {/* Sidebar Links - with proper scrolling */}
         <div className="h-[calc(100vh-56px)] overflow-y-auto hide-scrollbar">
-          <ul className="mt-4 px-3 space-y-1">
+          <ul className="mt-6 px-4 space-y-3">
             {role &&
               sidebarLinks[role]?.map((item, index) => (
                 <li key={item.path || index}>
@@ -232,7 +232,7 @@ const Sidebar = ({ role }) => {
                     <>
                       {/* Parent Link */}
                       <button
-                        className={`flex items-center justify-between w-full px-4 py-2.5 rounded-md text-[13px] font-normal
+                        className={`flex items-center justify-between w-full px-4 py-3 rounded-md text-[13px] font-normal
                         ${
                           openSubMenu === index
                             ? "bg-[#112969] text-white"
@@ -243,7 +243,7 @@ const Sidebar = ({ role }) => {
                         aria-controls={`submenu-${index}`}
                       >
                         <div className="flex items-center gap-3">
-                          {React.createElement(item.icon, { size: 18 })}
+                          {React.createElement(item.icon, { size: 20 })}
                           <span>{item.name}</span>
                         </div>
                         <FiChevronDown 
@@ -259,12 +259,12 @@ const Sidebar = ({ role }) => {
                           openSubMenu === index ? "max-h-96" : "max-h-0"
                         }`}
                       >
-                        <ul className="ml-5 mt-1 space-y-1 border-l border-gray-700 pl-2">
+                        <ul className="ml-6 mt-2 space-y-2 border-l border-gray-700 pl-2">
                           {item.subLinks.map((sub) => (
                             <li key={sub.path}>
                               <Link
                                 to={sub.path}
-                                className={`block px-3 py-2 text-[12px] rounded-md ${
+                                className={`block px-4 py-2 text-[12px] rounded-md ${
                                   activeLink === sub.path
                                     ? "bg-[#112969] text-white"
                                     : "hover:bg-[#1c316c] hover:text-white"
@@ -285,7 +285,7 @@ const Sidebar = ({ role }) => {
                   ) : (
                     <Link
                       to={item.path}
-                      className={`flex items-center gap-3 px-4 py-2.5 rounded-md text-[13px] font-normal
+                      className={`flex items-center gap-3 px-4 py-3 rounded-md text-[13px] font-normal
                       ${
                         activeLink.startsWith(item.path)
                           ? "bg-[#112969] text-white"
@@ -297,7 +297,7 @@ const Sidebar = ({ role }) => {
                         }
                       }}
                     >
-                      {React.createElement(item.icon, { size: 18 })}
+                      {React.createElement(item.icon, { size: 20 })}
                       <span>{item.name}</span>
                     </Link>
                   )}
