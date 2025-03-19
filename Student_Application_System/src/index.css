@@ -4,29 +4,101 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  color: rgb(0, 0, 0);
-  background-color: rgb(255, 255, 255);
-  overflow-x: hidden;
+/* Base styles */
+:root {
+  --sidebar-width: 16rem; /* 64px in rem */
+  --sidebar-bg: #1E3A8A;
+  --transition-speed: 0.3s;
 }
 
-/* These classes can help with the layout */
+html {
+  @apply scroll-smooth;
+}
+
+body {
+  color: rgb(0, 0, 0);
+  background-color: rgb(252, 252, 252);
+  overflow-x: hidden;
+  @apply font-sans;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.5);
+  border-radius: 20px;
+}
+
+/* Hide scrollbar while allowing scroll functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+  
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Components */
 @layer components {
+  /* Layout components */
   .page-container {
-    @apply min-h-screen flex flex-col;
+    @apply min-h-screen flex flex-col bg-gray-50;
   }
   
   .main-content {
-    @apply flex-1 transition-all duration-300 lg:ml-64 p-4;
+    @apply flex-1 transition-all duration-300 p-4 sm:p-6;
   }
   
-  /* Hide scrollbar while allowing scroll functionality if needed */
-  .hide-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;     /* Firefox */
+  /* Sidebar related */
+  .sidebar {
+    @apply fixed top-0 left-0 h-full w-64 bg-blue-900 text-gray-300 
+      transition-all duration-300 ease-in-out z-40;
   }
   
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari and Opera */
+  .sidebar-open {
+    @apply translate-x-0 shadow-lg;
+  }
+  
+  .sidebar-closed {
+    @apply -translate-x-full;
+  }
+  
+  /* Navbar related */
+  .navbar-container {
+    @apply w-full bg-white shadow-md z-20 sticky top-0 transition-all duration-300;
+  }
+  
+  /* Button styles */
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md 
+      transition-colors duration-200 font-medium text-sm;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md 
+      transition-colors duration-200 font-medium text-sm;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md 
+      transition-colors duration-200 font-medium text-sm;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-lg shadow-md p-4 sm:p-6;
   }
 }

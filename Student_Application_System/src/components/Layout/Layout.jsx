@@ -5,7 +5,7 @@ import { Outlet } from "react-router-dom";
 import { useAuth } from '../../context/AuthContext';
 
 const Layout = ({ role }) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   
   // Get the user's name from the auth context
   const userName = user ? user.fullName : 'User';
@@ -23,11 +23,21 @@ const Layout = ({ role }) => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
       <Sidebar role={role} />
-      <div className="flex flex-col flex-1">
-        <Navbar role={role} userName={userName} appId={appId} />
-        <main className="flex-1 transition-all duration-300 lg:ml-64 ml-0 p-4">
+      
+      {/* Main Content */}
+      <div className="flex flex-col flex-1 lg:ml-64 w-full overflow-hidden">
+        {/* Navbar */}
+        <Navbar 
+          role={role} 
+          userName={userName} 
+          appId={appId} 
+        />
+        
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50">
           <Outlet />
         </main>
       </div>
