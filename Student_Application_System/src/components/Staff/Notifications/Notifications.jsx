@@ -25,7 +25,7 @@ const StaffNotifications = () => {
         setLoading(true);
         setError(null);
         
-        const response = await api.get("/notifications/student"); // Same endpoint works for all users
+        const response = await api.get("/notifications/user"); // Same endpoint works for all users
         setNotifications(response.data);
       } catch (err) {
         console.error("Error fetching notifications:", err);

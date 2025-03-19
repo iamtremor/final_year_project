@@ -58,7 +58,41 @@ const getUsers = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
+const getUserProfileById = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Find user by ID
+    const user = await User.findById(userId).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Return basic profile information
+    const profileData = {
+      id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      department: user.department
+    };
+    
+    // Add role-specific fields
+    if (user.role === 'student') {
+      profileData.applicationId = user.applicationId;
+    } else if (user.role === 'staff') {
+      profileData.staffId = user.staffId;
+    } else if (user.role === 'admin') {
+      profileData.adminId = user.adminId;
+    }
+    
+    res.json(profileData);
+  } catch (error) {
+    console.error('Get user profile by ID error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 // @desc    Get users by role
 // @route   GET /api/users/role/:role
 // @access  Private/Admin
@@ -198,5 +232,6 @@ module.exports = {
   getUsersByRole,
   getUsersWithBlockchainStatus,
   updateUserProfile,
-  deleteUser
+  deleteUser,
+  getUserProfileById
 };

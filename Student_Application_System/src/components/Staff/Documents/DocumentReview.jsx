@@ -104,7 +104,30 @@ const DocumentReviewPage = () => {
 
   const handleDownloadDocument = async () => {
     try {
-      window.open(`/documents/download/${id}`, "_blank");
+      setError(null);
+      
+      // Get the file using your API instance (which already includes auth headers)
+      const response = await api.get(`/documents/download/${id}`, {
+        responseType: 'blob' // Important for file downloads
+      });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      
+      // Create a link element using window.document
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', document.fileName || 'document'); 
+      
+      // Append to document
+      window.document.body.appendChild(link);
+      
+      // Trigger download
+      link.click();
+      
+      // Clean up
+      window.document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Error downloading document:", err);
       setError("Could not download document. Please try again later.");

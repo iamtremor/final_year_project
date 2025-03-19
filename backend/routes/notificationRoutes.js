@@ -7,13 +7,14 @@ const {
   toggleReadStatus,
   markAllRead,
   deleteNotification,
-  clearAllNotifications
+  clearAllNotifications,
+  getUserNotifications
 } = require('../controllers/notificationController');
 const auth = require('../middleware/auth');
 const { checkRole, checkRoles } = require('../middleware/roles');
 
 // Get notifications for current student
-router.get('/student', auth, checkRole('student'), getStudentNotifications);
+router.get('/user', auth, getUserNotifications);
 
 // Create notification (staff/admin only)
 router.post('/', auth, checkRoles(['staff', 'admin']), createNotification);

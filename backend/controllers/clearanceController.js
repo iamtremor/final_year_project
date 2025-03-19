@@ -227,14 +227,24 @@ const getPendingForms = async (req, res) => {
           formName: 'New Clearance Form'
         }))
       );
-      
+      const staffId = req.user._id;
       // Also get Provisional Admission Forms that need Deputy Registrar approval
       const staffRole = 'deputyRegistrar';
       const pendingProvForms = await ProvAdmissionForm.find({
         submitted: true,
         approved: false,
         'approvals.staffRole': staffRole,
-        'approvals.approved': false
+        'approvals.approved': false,
+        // Exclude forms where this staff has already approved
+        'approvals': {
+          $not: {
+            $elemMatch: {
+              staffRole: staffRole,
+              staffId: staffId,
+              approved: true
+            }
+          }
+        }
       }).populate('studentId', 'fullName email department');
       
       console.log(`Found ${pendingProvForms.length} provisional admission forms pending Deputy Registrar approval`);

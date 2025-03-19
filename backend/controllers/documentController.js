@@ -22,7 +22,6 @@ try {
 } catch (err) {
   console.error("Upload directory permission issue:", err);
 }
-
 // Upload document
 const uploadDocument = async (req, res) => {
   try {
@@ -109,6 +108,8 @@ const uploadDocument = async (req, res) => {
     // Save file to disk
     fs.writeFileSync(filePath, file.buffer);
     
+    document.filePath = path.join(config.storage.documentsPath, fileName);
+    // document.fileName = file.originalname;
     // Create new document
     const document = new Document({
       title,
@@ -237,10 +238,23 @@ const downloadDocument = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized' });
     }
     
-    const filePath = path.join(__dirname, '..', document.filePath);
+    // Log the file path for debugging
+    console.log("Looking for file at path:", document.filePath);
+    const absolutePath = path.join(__dirname, '..', document.filePath);
+    console.log("Absolute file path:", absolutePath);
     
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: 'File not found on server' });
+    if (!fs.existsSync(absolutePath)) {
+      // Log more detailed error info
+      console.error('File not found on server:', {
+        documentId: document._id,
+        filePath: document.filePath,
+        absolutePath
+      });
+      
+      return res.status(404).json({ 
+        message: 'File not found on server',
+        details: { documentPath: document.filePath }
+      });
     }
     
     // Set response headers
@@ -248,7 +262,12 @@ const downloadDocument = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
     
     // Send file
-    const fileStream = fs.createReadStream(filePath);
+    const fileStream = fs.createReadStream(absolutePath);
+    fileStream.on('error', (err) => {
+      console.error('Error streaming file:', err);
+      res.status(500).json({ message: 'Error streaming file' });
+    });
+    
     fileStream.pipe(res);
   } catch (error) {
     console.error('Document download error:', error.message);
@@ -495,22 +514,19 @@ const canStaffApproveDocument = async (staff, document) => {
     });
     
     // Check for School Officer with managed departments
-    // Updated to explicitly check for 'School Officer' department
-    const isSchoolOfficer = staff.department === 'School Officer' || 
-                      (!staff.department.includes('HOD') && 
-                      !['Registrar', 'Student Support', 'Finance', 'Health Services', 'Library'].includes(staff.department));
-    
-    // For School Officers: Check if they can approve JAMB/WAEC documents
-    if (isSchoolOfficer && 
-        ['JAMB Result', 'JAMB Admission', 'WAEC'].includes(document.documentType)) {
-      
-      // Allow if they manage the student's department
-      if (staff.managedDepartments && 
-          staff.managedDepartments.includes(studentDepartment)) {
-        console.log(`School Officer can approve ${document.documentType} for student in ${studentDepartment}`);
-        return true;
-      } else {
-        console.log(`School Officer cannot approve - student department not managed`);
+    if (staff.department === 'School Officer') {
+      // For School Officers: Check if they can approve JAMB/WAEC documents
+      if (['JAMB Result', 'JAMB Admission', 'WAEC'].includes(document.documentType)) {
+        
+        // Allow if they manage the student's department
+        if (staff.managedDepartments && 
+            staff.managedDepartments.includes(studentDepartment)) {
+          console.log(`School Officer can approve ${document.documentType} for student in ${studentDepartment}`);
+          return true;
+        } else {
+          console.log(`School Officer cannot approve - student department not managed by this officer`);
+          return false;
+        }
       }
     }
     
@@ -537,6 +553,16 @@ const canStaffApproveDocument = async (staff, document) => {
       case 'Affidavit':
         // Add support for Affidavit documents
         return staff.department === 'Legal';
+      
+      case 'JAMB Result':
+      case 'JAMB Admission':
+      case 'WAEC':
+        // These should be handled by the School Officer check above,
+        // but we'll add this as a fallback
+        if (staff.department === 'School Officer' && staff.managedDepartments) {
+          return staff.managedDepartments.includes(studentDepartment);
+        }
+        return false;
         
       default:
         // Unknown document type
@@ -554,6 +580,13 @@ const canStaffApproveDocument = async (staff, document) => {
  */
 const getApprovableDocuments = async (req, res) => {
   try {
+    console.log("getApprovableDocuments called by:", {
+      staffId: req.user._id,
+      staffName: req.user.fullName,
+      department: req.user.department,
+      managedDepartments: req.user.managedDepartments || []
+    });
+    
     // Ensure this is a staff member
     if (req.user.role !== 'staff' && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Unauthorized: Staff only' });
@@ -570,47 +603,50 @@ const getApprovableDocuments = async (req, res) => {
       let approverRoles = [];
       let documentFilter = {};
       
-      switch (req.user.department) {
-        case 'Registrar':
-          approverRoles.push('deputyRegistrar');
-          documentFilter = { documentType: 'Admission Letter' };
-          break;
-        case 'Student Support':
-          approverRoles.push('studentSupport');
-          documentFilter = { 
-            documentType: { $in: ['Birth Certificate', 'Passport'] } 
-          };
-          break;
-        case 'Finance':
-          approverRoles.push('finance');
-          documentFilter = { documentType: 'Payment Receipt' };
-          break;
-        case 'Health Services':
-          approverRoles.push('health');
-          documentFilter = { documentType: 'Medical Report' };
-          break;
-        case 'Legal':
-          approverRoles.push('legal');
-          documentFilter = { documentType: 'Affidavit' };
-          break;
-          case 'School Officer':
-            approverRoles.push('schoolOfficer');
+      // Special handling for School Officer
+      if (req.user.department === 'School Officer') {
+        approverRoles.push('schoolOfficer');
+        documentFilter = { 
+          documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } 
+        };
+        
+        console.log("School Officer document filter set up", {
+          approverRoles,
+          documentFilter,
+          managedDepartments: req.user.managedDepartments || []
+        });
+      } else {
+        // For other departments
+        switch (req.user.department) {
+          case 'Registrar':
+            approverRoles.push('deputyRegistrar');
+            documentFilter = { documentType: 'Admission Letter' };
+            break;
+          case 'Student Support':
+            approverRoles.push('studentSupport');
             documentFilter = { 
-              documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } 
+              documentType: { $in: ['Birth Certificate', 'Passport'] } 
             };
             break;
-        default:
-          // For academic departments with HOD
-          if (req.user.department.includes('HOD')) {
-            approverRoles.push('departmentHead');
-            documentFilter = { documentType: 'Transcript' };
-          } else {
-            // Other departments might be School Officers with different names
-            approverRoles.push('schoolOfficer');
-            documentFilter = { 
-              documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } 
-            };
-          }
+          case 'Finance':
+            approverRoles.push('finance');
+            documentFilter = { documentType: 'Payment Receipt' };
+            break;
+          case 'Health Services':
+            approverRoles.push('health');
+            documentFilter = { documentType: 'Medical Report' };
+            break;
+          case 'Legal':
+            approverRoles.push('legal');
+            documentFilter = { documentType: 'Affidavit' };
+            break;
+          default:
+            // For academic departments with HOD
+            if (req.user.department.includes('HOD')) {
+              approverRoles.push('departmentHead');
+              documentFilter = { documentType: 'Transcript' };
+            }
+        }
       }
       
       // Find documents that this staff can approve
@@ -622,11 +658,26 @@ const getApprovableDocuments = async (req, res) => {
         ]
       }).populate('owner', 'fullName email applicationId department');
       
+      console.log(`Found ${documents.length} pending documents before department filtering`);
+      
       // If this is a school officer, filter for students in their managed departments
       if (req.user.department === 'School Officer' && req.user.managedDepartments && req.user.managedDepartments.length > 0) {
+        // Add detailed logging before filtering
+        documents.forEach((doc, index) => {
+          console.log(`Document ${index + 1}:`, {
+            id: doc._id,
+            documentType: doc.documentType,
+            studentName: doc.owner?.fullName || 'Unknown',
+            studentDepartment: doc.owner?.department || 'Unknown'
+          });
+        });
+        
+        // Filter documents based on student department
         documents = documents.filter(doc => 
           doc.owner && req.user.managedDepartments.includes(doc.owner.department)
         );
+        
+        console.log(`After filtering, ${documents.length} documents remain for School Officer to approve`);
       } else if (req.user.department.includes('HOD')) {
         // For HOD, filter for their specific department
         const deptName = req.user.department.replace(' HOD', '');
@@ -643,8 +694,7 @@ const getApprovableDocuments = async (req, res) => {
   }
 };
 
-// Fix 5: Update ProvAdmissionForm creation to handle all required staff roles
-// In clearanceController.js, update submitProvAdmissionForm function:
+
 
 // Define the approval roles needed for this form
 const approvalRoles = [

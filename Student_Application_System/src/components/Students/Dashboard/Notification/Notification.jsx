@@ -47,7 +47,7 @@ const Notification = () => {
       }
 
       // Call the notifications API
-      const response = await axios.get('/api/notifications/student', {
+      const response = await axios.get('/api/notifications/user', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

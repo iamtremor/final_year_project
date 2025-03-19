@@ -457,10 +457,19 @@ const getStaffStats = async (staff) => {
   
   // Count pending Provisional Admission forms
   const provPendingCount = await ProvAdmissionForm.countDocuments({
-    submitted: true,
-    'approvals.staffRole': staffRole,
-    'approvals.approved': false
-  });
+  submitted: true,
+  'approvals.staffRole': staffRole,
+  'approvals.approved': false,
+  'approvals': {
+    $not: {
+      $elemMatch: {
+        staffRole: staffRole,
+        staffId: staffId,
+        approved: true
+      }
+    }
+  }
+});
   
   stats.pendingApprovals.forms += provPendingCount;
   
@@ -488,6 +497,13 @@ const getPendingItems = async (staff) => {
     documents: []
   };
   
+  console.log("Getting pending items for staff:", {
+    staffId: staff._id,
+    staffName: staff.fullName,
+    department: staff.department,
+    managedDepartments: staff.managedDepartments || []
+  });
+  
   // Get pending forms
   if (department === 'Registrar') {
     // Get New Clearance Forms needing Deputy Registrar approval
@@ -503,99 +519,181 @@ const getPendingItems = async (staff) => {
       studentDepartment: form.studentId.department,
       submittedDate: form.submittedDate
     })));
-  } else if (!department.includes('HOD') && 
-             !['Student Support', 'Finance', 'Health Services', 'Library'].includes(department)) {
+  } else if (department === 'School Officer' && staff.managedDepartments && staff.managedDepartments.length > 0) {
     // Get New Clearance Forms needing School Officer approval
-    const departmentWithoutHOD = department.replace(' HOD', '');
-    const studentsInDept = await User.find({ 
+    // Find students in these departments
+    const studentsInManagedDepts = await User.find({ 
       role: 'student', 
-      department: departmentWithoutHOD 
+      department: { $in: staff.managedDepartments }
+    });
+    
+    const studentIds = studentsInManagedDepts.map(s => s._id);
+    
+    console.log(`School Officer manages departments: ${staff.managedDepartments.join(', ')}`);
+    console.log(`Found ${studentIds.length} students in managed departments`);
+    
+    // Find forms for these students that are approved by Deputy Registrar but not by School Officer
+    if (studentIds.length > 0) {
+      const schoolOfficerForms = await NewClearanceForm.find({
+        studentId: { $in: studentIds },
+        deputyRegistrarApproved: true,
+        schoolOfficerApproved: false,
+        submitted: true
+      }).populate('studentId', 'fullName email department');
+
+      console.log(`Found ${schoolOfficerForms.length} new clearance forms pending School Officer approval`);
+      
+      pendingItems.forms.push(...schoolOfficerForms.map(form => ({
+        id: form._id,
+        type: 'newClearance',
+        formName: 'New Clearance Form',
+        studentName: form.studentId?.fullName || form.studentName,
+        studentDepartment: form.studentId?.department,
+        submittedDate: form.submittedDate
+      })));
+      
+      // Also get Provisional Admission Forms that need School Officer approval
+      const staffRole = 'schoolOfficer';
+const pendingProvForms = await ProvAdmissionForm.find({
+  studentId: { $in: studentIds },
+  submitted: true,
+  approved: false,
+  'approvals.staffRole': staffRole,
+  'approvals.approved': false,
+  // Exclude forms where this staff has already approved
+  'approvals': {
+    $not: {
+      $elemMatch: {
+        staffRole: staffRole,
+        staffId: staff._id,
+        approved: true
+      }
+    }
+  }
+}).populate('studentId', 'fullName email department');
+      
+      console.log(`Found ${pendingProvForms.length} provisional admission forms pending School Officer approval`);
+      
+      pendingItems.forms.push(...pendingProvForms.map(form => ({
+        id: form._id,
+        type: 'provAdmission',
+        formName: 'Provisional Admission Form',
+        studentName: form.studentId?.fullName || form.studentName,
+        studentDepartment: form.studentId?.department,
+        submittedDate: form.submittedDate
+      })));
+    }
+  } else if (department.includes('HOD')) {
+    // For Department Heads (HOD)
+    const departmentName = department.replace(' HOD', '');
+    
+    // Find students in this department
+    const studentsInDept = await User.find({
+      role: 'student',
+      department: departmentName
     });
     
     const studentIds = studentsInDept.map(s => s._id);
     
-    const pendingForms = await NewClearanceForm.find({
-      studentId: { $in: studentIds },
-      deputyRegistrarApproved: true,
-      schoolOfficerApproved: false
-    }).populate('studentId', 'fullName email department');
+    console.log(`HOD manages department: ${departmentName}`);
+    console.log(`Found ${studentIds.length} students in department`);
     
-    pendingItems.forms.push(...pendingForms.map(form => ({
-      id: form._id,
-      type: 'newClearance',
-      formName: 'New Clearance Form',
-      studentName: form.studentId.fullName,
-      studentDepartment: form.studentId.department,
-      submittedDate: form.submittedDate
-    })));
+    if (studentIds.length > 0) {
+      // Get Provisional Admission Forms that need Department Head approval
+      const staffRole = 'departmentHead';
+      const pendingProvForms = await ProvAdmissionForm.find({
+        studentId: { $in: studentIds },
+        submitted: true,
+        approved: false,
+        'approvals.staffRole': staffRole,
+        'approvals.approved': false
+      }).populate('studentId', 'fullName email department');
+      
+      console.log(`Found ${pendingProvForms.length} provisional admission forms pending Department Head approval`);
+      
+      pendingItems.forms.push(...pendingProvForms.map(form => ({
+        id: form._id,
+        type: 'provAdmission',
+        formName: 'Provisional Admission Form',
+        studentName: form.studentId?.fullName || form.studentName,
+        studentDepartment: form.studentId?.department,
+        submittedDate: form.submittedDate
+      })));
+    }
   }
   
-  // Get provisional admission forms needing staff approval
-  const staffRole = getStaffRoleFromDepartment(department);
-  
-  const pendingProvForms = await ProvAdmissionForm.find({
-    submitted: true,
-    'approvals.staffRole': staffRole,
-    'approvals.approved': false
-  }).populate('studentId', 'fullName email department');
-  
-  pendingItems.forms.push(...pendingProvForms.map(form => ({
-    id: form._id,
-    type: 'provAdmission',
-    formName: 'Provisional Admission Form',
-    studentName: form.studentId.fullName,
-    studentDepartment: form.studentId.department,
-    submittedDate: form.submittedDate
-  })));
-  
+  // Get other form types needed for other staff roles
+
   // Get pending documents based on staff role
   let documentFilter = {};
   
-  switch (department) {
-    case 'Registrar':
-      documentFilter = { documentType: 'Admission Letter' };
-      break;
-    case 'Student Support':
-      documentFilter = { documentType: { $in: ['Birth Certificate', 'Passport'] } };
-      break;
-    case 'Finance':
-      documentFilter = { documentType: 'Payment Receipt' };
-      break;
-    case 'Health Services':
-      documentFilter = { documentType: 'Medical Report' };
-      break;
-    default:
-      // For academic departments
-      if (department.includes('HOD')) {
-        documentFilter = { documentType: 'Transcript' };
-      } else {
-        documentFilter = { documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } };
-        
-        // For school officers, only count students in their department
-        const departmentWithoutHOD = department.replace(' HOD', '');
-        const studentsInDept = await User.find({ 
-          role: 'student', 
-          department: departmentWithoutHOD 
-        });
-        
-        const studentIds = studentsInDept.map(s => s._id);
+  // Special handling for School Officer
+  if (department === 'School Officer') {
+    documentFilter = { documentType: { $in: ['JAMB Result', 'JAMB Admission', 'WAEC'] } };
+    
+    // For school officers, only count students in their managed departments
+    if (staff.managedDepartments && staff.managedDepartments.length > 0) {
+      const studentsInManagedDepts = await User.find({ 
+        role: 'student', 
+        department: { $in: staff.managedDepartments } 
+      });
+      
+      const studentIds = studentsInManagedDepts.map(s => s._id);
+      console.log(`Found ${studentIds.length} students in managed departments for School Officer`);
+      
+      if (studentIds.length > 0) {
         documentFilter.owner = { $in: studentIds };
       }
+    }
+  } else {
+    switch (department) {
+      case 'Registrar':
+        documentFilter = { documentType: 'Admission Letter' };
+        break;
+      case 'Student Support':
+        documentFilter = { documentType: { $in: ['Birth Certificate', 'Passport'] } };
+        break;
+      case 'Finance':
+        documentFilter = { documentType: 'Payment Receipt' };
+        break;
+      case 'Health Services':
+        documentFilter = { documentType: 'Medical Report' };
+        break;
+      default:
+        // For academic departments
+        if (department.includes('HOD')) {
+          documentFilter = { documentType: 'Transcript' };
+          
+          // For HOD, only count students in their department
+          const departmentWithoutHOD = department.replace(' HOD', '');
+          const studentsInDept = await User.find({ 
+            role: 'student', 
+            department: departmentWithoutHOD 
+          });
+          
+          const studentIds = studentsInDept.map(s => s._id);
+          documentFilter.owner = { $in: studentIds };
+        }
+    }
   }
+  
+  console.log("Document filter for pending items:", documentFilter);
   
   // Get pending documents
   if (Object.keys(documentFilter).length > 0) {
-    const pendingDocs = await Document.find({
-      ...documentFilter,
-      status: 'pending'
-    }).populate('owner', 'fullName email department');
+    documentFilter.status = 'pending'; // Add status to the filter
+    
+    const pendingDocs = await Document.find(documentFilter)
+      .populate('owner', 'fullName email department');
+    
+    console.log(`Found ${pendingDocs.length} pending documents for dashboard`);
     
     pendingItems.documents.push(...pendingDocs.map(doc => ({
       id: doc._id,
       type: doc.documentType,
       title: doc.title,
-      studentName: doc.owner.fullName,
-      studentDepartment: doc.owner.department,
+      studentName: doc.owner?.fullName || 'Unknown',
+      studentDepartment: doc.owner?.department || 'Unknown',
       uploadedDate: doc.createdAt
     })));
   }

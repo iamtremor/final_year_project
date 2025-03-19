@@ -1,20 +1,19 @@
 // backend/controllers/notificationController.js
 const Notification = require('../models/Notification');
 
-// Get notifications for current student
-const getStudentNotifications = async (req, res) => {
+
+const getUserNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ 
       recipient: req.user._id 
-    }).sort({ createdAt: -1 }); // Sort by newest first
+    }).sort({ createdAt: -1 });
     
     res.json(notifications);
   } catch (error) {
-    console.error('Get notifications error:', error.message);
+    console.error('Get user notifications error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 };
-
 // Create a new notification
 const createNotification = async (req, res) => {
   try {
@@ -128,10 +127,10 @@ const clearAllNotifications = async (req, res) => {
 };
 
 module.exports = {
-  getStudentNotifications,
   createNotification,
   toggleReadStatus,
   markAllRead,
   deleteNotification,
-  clearAllNotifications
+  clearAllNotifications,
+  getUserNotifications
 };

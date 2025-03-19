@@ -6,7 +6,8 @@ const {
   getUsersByRole,
   getUsersWithBlockchainStatus,
   updateUserProfile,
-  deleteUser
+  deleteUser,
+  getUserProfileById
 } = require('../controllers/userController');
 const auth = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
@@ -16,6 +17,9 @@ router.get('/profile', auth, getUserProfile);
 
 // Update user profile - any authenticated user
 router.put('/profile', auth, updateUserProfile);
+
+// Add this route to userRoutes.js
+router.get('/profile/:id', auth, getUserProfileById);
 
 // Get all users - admin only
 router.get('/', auth, checkRole('admin'), getUsers);
