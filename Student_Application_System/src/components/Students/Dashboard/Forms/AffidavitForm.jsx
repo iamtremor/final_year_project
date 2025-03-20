@@ -148,7 +148,7 @@ const AffidavitForm = () => {
       
       // Navigate to the forms status page after successful submission
       setTimeout(() => {
-        navigate('/student/forms');
+        navigate('/student/forms/form-status');
       }, 2000);
     } catch (error) {
       console.error('Error submitting form:', error);

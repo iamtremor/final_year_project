@@ -10,12 +10,14 @@ import { MdOutlineSpaceDashboard, MdOutlineCampaign } from "react-icons/md";
 import { CiSettings } from "react-icons/ci";
 import { IoBarChart } from "react-icons/io5";
 import { MdMenu, MdClose } from "react-icons/md";
+import api from "../../utils/api"; // Make sure axios is imported
 
 const Sidebar = ({ role }) => {
   const location = useLocation();
   const activeLink = location.pathname;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openSubMenu, setOpenSubMenu] = useState(null);
+  const [notificationCount, setNotificationCount] = useState(0);
 
   // Initialize sidebar based on screen size
   useEffect(() => {
@@ -34,6 +36,32 @@ const Sidebar = ({ role }) => {
     window.addEventListener('resize', handleResize);
     
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Get notification count
+  useEffect(() => {
+    const fetchNotificationCount = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        const res = await api.get('/notifications/unread-count', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        setNotificationCount(res.data.count);
+      } catch (error) {
+        console.error('Error fetching notification count:', error);
+      }
+    };
+    
+    // Fetch initially
+    fetchNotificationCount();
+    
+    // Set up interval to periodically check for new notifications
+    const interval = setInterval(fetchNotificationCount, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Close sidebar when navigating on mobile
@@ -89,6 +117,7 @@ const Sidebar = ({ role }) => {
         path: "/student/notifications",
         name: "Notifications",
         icon: IoMdNotificationsOutline,
+        badge: notificationCount
       },
       { path: "/student/profile", name: "Profile", icon: FaUsers },
     ],
@@ -117,6 +146,7 @@ const Sidebar = ({ role }) => {
         path: "/staff/notifications",
         name: "Notifications",
         icon: IoMdNotificationsOutline,
+        badge: notificationCount
       },
       { path: "/staff/profile", name: "Profile", icon: FaUsers },
     ],
@@ -164,6 +194,7 @@ const Sidebar = ({ role }) => {
         path: "/admin/notifications",
         name: "Notifications",
         icon: IoMdNotificationsOutline,
+        badge: notificationCount
       },
       {
         path: "/admin/deadlines",
@@ -259,7 +290,7 @@ const Sidebar = ({ role }) => {
                           openSubMenu === index ? "max-h-96" : "max-h-0"
                         }`}
                       >
-                        <ul className="ml-6 mt-2 space-y-2   pl-2">
+                        <ul className="ml-6 mt-2 space-y-2 pl-2">
                           {item.subLinks.map((sub) => (
                             <li key={sub.path}>
                               <Link
@@ -285,7 +316,7 @@ const Sidebar = ({ role }) => {
                   ) : (
                     <Link
                       to={item.path}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-md text-[13px] font-normal
+                      className={`flex items-center gap-3 px-4 py-3 rounded-md text-[13px] font-normal relative
                       ${
                         activeLink.startsWith(item.path)
                           ? "bg-[#112969] text-white"
@@ -299,6 +330,13 @@ const Sidebar = ({ role }) => {
                     >
                       {React.createElement(item.icon, { size: 20 })}
                       <span>{item.name}</span>
+                      
+                      {/* Notification Badge */}
+{item.badge > 0 && (
+  <span className="absolute right-3 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+    {item.badge > 99 ? '99+' : item.badge}
+  </span>
+)}
                     </Link>
                   )}
                 </li>

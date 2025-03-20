@@ -15,7 +15,8 @@ const {
   getStudentForms,
   getPendingForms,
   getApprovedFormsByStaff, 
-  getRejectedFormsByStaff 
+  getRejectedFormsByStaff,
+  deleteProvAdmissionForm
 } = require('../controllers/clearanceController');
 
 
@@ -38,5 +39,8 @@ router.post('/forms/:formId/approve', auth, checkRoles(['staff', 'admin']), appr
 
 // Get specific form - THIS MUST COME AFTER THE MORE SPECIFIC ROUTES
 router.get('/forms/:formId', auth, getFormById);
+
+// Delete routes
+router.delete('/forms/prov-admission/:formId', auth, checkRoles(['staff', 'admin']), deleteProvAdmissionForm);
 
 module.exports = router;

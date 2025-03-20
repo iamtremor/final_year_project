@@ -50,7 +50,19 @@ const createNotification = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
+const getUnreadCount = async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({ 
+      recipient: req.user._id,
+      isRead: false
+    });
+    
+    res.json({ count });
+  } catch (error) {
+    console.error('Error getting unread count:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 // Mark notification as read
 const toggleReadStatus = async (req, res) => {
   try {
@@ -132,5 +144,6 @@ module.exports = {
   markAllRead,
   deleteNotification,
   clearAllNotifications,
-  getUserNotifications
+  getUserNotifications,
+  getUnreadCount
 };

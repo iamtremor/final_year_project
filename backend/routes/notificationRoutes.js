@@ -8,7 +8,8 @@ const {
   markAllRead,
   deleteNotification,
   clearAllNotifications,
-  getUserNotifications
+  getUserNotifications,
+  getUnreadCount
 } = require('../controllers/notificationController');
 const auth = require('../middleware/auth');
 const { checkRole, checkRoles } = require('../middleware/roles');
@@ -28,6 +29,8 @@ router.put('/:id/toggle-read', auth, toggleReadStatus);
 // Mark all notifications as read
 router.put('/mark-all-read', auth, markAllRead);
 
+// Get unread notification count
+router.get('/unread-count', auth, getUnreadCount);
 
 // Clear all notifications
 router.delete('/clear-all', auth, clearAllNotifications);

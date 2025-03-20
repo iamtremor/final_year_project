@@ -208,6 +208,7 @@ const getPendingForms = async (req, res) => {
     let pendingForms = [];
     const staffDepartment = req.user.department;
     const managedDepartments = req.user.managedDepartments || [];
+    const staffId = req.user._id;
     
     // Process based on staff department
     if (staffDepartment === 'Registrar') {
@@ -227,7 +228,7 @@ const getPendingForms = async (req, res) => {
           formName: 'New Clearance Form'
         }))
       );
-      const staffId = req.user._id;
+      
       // Also get Provisional Admission Forms that need Deputy Registrar approval
       const staffRole = 'deputyRegistrar';
       const pendingProvForms = await ProvAdmissionForm.find({
@@ -300,7 +301,17 @@ const getPendingForms = async (req, res) => {
           submitted: true,
           approved: false,
           'approvals.staffRole': staffRole,
-          'approvals.approved': false
+          'approvals.approved': false,
+          // Exclude forms where this staff has already approved
+          'approvals': {
+            $not: {
+              $elemMatch: {
+                staffRole: staffRole,
+                staffId: staffId,
+                approved: true
+              }
+            }
+          }
         }).populate('studentId', 'fullName email department');
         
         console.log(`Found ${pendingProvForms.length} provisional admission forms pending School Officer approval`);
@@ -340,7 +351,17 @@ const getPendingForms = async (req, res) => {
           submitted: true,
           approved: false,
           'approvals.staffRole': staffRole,
-          'approvals.approved': false
+          'approvals.approved': false,
+          // Exclude forms where this staff has already approved
+          'approvals': {
+            $not: {
+              $elemMatch: {
+                staffRole: staffRole,
+                staffId: staffId,
+                approved: true
+              }
+            }
+          }
         }).populate('studentId', 'fullName email department');
         
         console.log(`Found ${pendingProvForms.length} provisional admission forms pending Department Head approval`);
@@ -373,7 +394,7 @@ const getPendingForms = async (req, res) => {
       console.log(`Found ${studentIds.length} students in managed departments`);
       
       if (studentIds.length > 0) {
-        const pendingForms = await NewClearanceForm.find({
+        const pendingClearanceForms = await NewClearanceForm.find({
           studentId: { $in: studentIds },
           deputyRegistrarApproved: true,
           schoolOfficerApproved: false,
@@ -381,7 +402,7 @@ const getPendingForms = async (req, res) => {
         }).populate('studentId', 'fullName email department');
         
         pendingForms = pendingForms.concat(
-          pendingForms.map(form => ({
+          pendingClearanceForms.map(form => ({
             ...form.toObject(),
             type: 'newClearance',
             id: form._id,
@@ -392,12 +413,23 @@ const getPendingForms = async (req, res) => {
         );
         
         // Get Provisional Admission Forms
+        const staffRole = 'schoolOfficer';
         const pendingProvForms = await ProvAdmissionForm.find({
           studentId: { $in: studentIds },
           submitted: true,
           approved: false,
-          'approvals.staffRole': 'schoolOfficer',
-          'approvals.approved': false
+          'approvals.staffRole': staffRole,
+          'approvals.approved': false,
+          // Exclude forms where this staff has already approved
+          'approvals': {
+            $not: {
+              $elemMatch: {
+                staffRole: staffRole,
+                staffId: staffId,
+                approved: true
+              }
+            }
+          }
         }).populate('studentId', 'fullName email department');
         
         pendingForms = pendingForms.concat(
@@ -507,7 +539,17 @@ const getPendingForms = async (req, res) => {
           submitted: true,
           approved: false,
           'approvals.staffRole': staffRole,
-          'approvals.approved': false
+          'approvals.approved': false,
+          // Exclude forms where this staff has already approved
+          'approvals': {
+            $not: {
+              $elemMatch: {
+                staffRole: staffRole,
+                staffId: staffId,
+                approved: true
+              }
+            }
+          }
         }).populate('studentId', 'fullName email department');
         
         console.log(`Found ${pendingProvForms.length} provisional admission forms for ${staffRole}`);
@@ -1315,61 +1357,40 @@ const approveForm = async (req, res) => {
         
         // Find next staff member who needs to approve and notify them
         const pendingApprovals = form.approvals.filter(a => !a.approved);
-if (pendingApprovals.length > 0) {
-  const nextRole = pendingApprovals[0].staffRole;
-  
-  // Map role to department
-  let nextDepartment;
-  switch (nextRole) {
-    case 'deputyRegistrar': nextDepartment = 'Registrar'; break;
-    case 'studentSupport': nextDepartment = 'Student Support'; break;
-    case 'finance': nextDepartment = 'Finance'; break;
-    case 'health': nextDepartment = 'Health Services'; break;
-    case 'library': nextDepartment = 'Library'; break;
-    case 'legal': nextDepartment = 'Legal'; break;
-    case 'departmentHead': nextDepartment = `${student.department} HOD`; break;
-    case 'schoolOfficer': 
-      // Find school officers who manage this student's department
-      const schoolOfficers = await User.find({
-        role: 'staff',
-        department: 'School Officer',
-        managedDepartments: { $in: [student.department] }
-      });
-      
-      if (schoolOfficers.length > 0) {
-        // Create notification for the first school officer found
-        const nextStaffNotification = new Notification({
-          title: 'Provisional Admission Form Needs Review',
-          description: `A Provisional Admission Form for ${student.fullName} needs your review.`,
-          recipient: schoolOfficers[0]._id,
-          status: 'info',
-          type: 'form_submission'
-        });
-        await nextStaffNotification.save();
-      }
-      break;
-  }
-  
-  if (nextDepartment) {
-    // Find staff member in that department
-    const nextStaff = await User.findOne({
-      role: 'staff',
-      department: nextDepartment
-    });
-    
-    if (nextStaff) {
-      // Create notification for next staff member
-      const nextStaffNotification = new Notification({
-        title: 'Provisional Admission Form Needs Review',
-        description: `A Provisional Admission Form for ${student.fullName} needs your review.`,
-        recipient: nextStaff._id,
-        status: 'info',
-        type: 'form_submission'
-      });
-      await nextStaffNotification.save();
-    }
-  }
-
+        if (pendingApprovals.length > 0) {
+          const nextRole = pendingApprovals[0].staffRole;
+          
+          // Map role to department
+          let nextDepartment;
+          switch (nextRole) {
+            case 'deputyRegistrar': nextDepartment = 'Registrar'; break;
+            case 'studentSupport': nextDepartment = 'Student Support'; break;
+            case 'finance': nextDepartment = 'Finance'; break;
+            case 'health': nextDepartment = 'Health Services'; break;
+            case 'library': nextDepartment = 'Library'; break;
+            case 'legal': nextDepartment = 'Legal'; break;
+            case 'departmentHead': nextDepartment = `${student.department} HOD`; break;
+            case 'schoolOfficer': 
+              // Find school officers who manage this student's department
+              const schoolOfficers = await User.find({
+                role: 'staff',
+                department: 'School Officer',
+                managedDepartments: { $in: [student.department] }
+              });
+              
+              if (schoolOfficers.length > 0) {
+                // Create notification for the first school officer found
+                const nextStaffNotification = new Notification({
+                  title: 'Provisional Admission Form Needs Review',
+                  description: `A Provisional Admission Form for ${student.fullName} needs your review.`,
+                  recipient: schoolOfficers[0]._id,
+                  status: 'info',
+                  type: 'form_submission'
+                });
+                await nextStaffNotification.save();
+              }
+              break;
+          }
           
           if (nextDepartment) {
             // Find staff member in that department
@@ -1466,11 +1487,7 @@ if (pendingApprovals.length > 0) {
   }
 };
 
-/**
- * Get forms rejected by the current staff member
- * @route   GET /api/clearance/forms/rejected-by-me
- * @access  Private (Staff only)
- */
+
 /**
  * Get forms approved by the current staff member
  * @route   GET /api/clearance/forms/approved-by-me
@@ -1657,8 +1674,67 @@ const getRejectedFormsByStaff = async (req, res) => {
     });
   }
 };
-
-// Add these to your exports
+/**
+ * Delete a provisional admission form
+ * @route   DELETE /api/clearance/forms/prov-admission/:formId
+ * @access  Private (Admin/Staff)
+ */
+const deleteProvAdmissionForm = async (req, res) => {
+  try {
+    const { formId } = req.params;
+    
+    // Find the form
+    const form = await ProvAdmissionForm.findById(formId);
+    
+    if (!form) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+    
+    // Check if user has appropriate permissions (only staff or admin)
+    if (req.user.role !== 'staff' && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to delete forms' });
+    }
+    
+    // Delete the form
+    await ProvAdmissionForm.findByIdAndDelete(formId);
+    
+    // Log the deletion to blockchain if student has applicationId
+    if (form.studentId) {
+      const student = await User.findById(form.studentId);
+      if (student && student.applicationId) {
+        try {
+          await blockchainService.logAction(
+            student.applicationId,
+            "FORM_DELETED",
+            `Provisional Admission form deleted by ${req.user.fullName} (${req.user.role})`
+          );
+        } catch (blockchainError) {
+          console.error('Blockchain logging error:', blockchainError);
+          // Continue with response even if blockchain logging fails
+        }
+      }
+    }
+    
+    // Create notification for student
+    const notification = new Notification({
+      title: 'Form Deleted',
+      description: 'Your Provisional Admission Form has been deleted by a staff member.',
+      recipient: form.studentId,
+      status: 'warning',
+      type: 'form_deletion'
+    });
+    await notification.save();
+    
+    res.json({ 
+      message: 'Provisional Admission Form deleted successfully',
+      formId: formId
+    });
+    
+  } catch (error) {
+    console.error('Error deleting provisional form:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
 module.exports = {
   getFormsStatus,
@@ -1672,5 +1748,6 @@ module.exports = {
   getPendingForms,
   getStudentForms,
   getApprovedFormsByStaff,
-  getRejectedFormsByStaff
+  getRejectedFormsByStaff,
+  deleteProvAdmissionForm
 };

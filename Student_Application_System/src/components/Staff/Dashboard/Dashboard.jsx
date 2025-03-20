@@ -346,7 +346,7 @@ const StaffDashboard = () => {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-center">
                         <a 
-                          href={`/staff/form-review/${form.id}?formType=${form.type}`} 
+                          href={`/staff/review-form/${form.id}?formType=${form.type}`} 
                           className="text-[#1E3A8A] hover:text-[#152a63] hover:underline"
                         >
                           Review

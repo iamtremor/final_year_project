@@ -27,8 +27,9 @@ const upload = multer({
 });
 
 // Student routes
-router.post('/upload', auth, checkRole('student'), upload.single('file'), uploadDocument);
+
 router.get('/student', auth, checkRole('student'), getStudentDocuments);
+router.post('/upload', auth, checkRole('student'), upload.single('file'), uploadDocument);
 
 // Staff routes - SPECIFIC NAMED ROUTES FIRST
 router.get('/pending', auth, checkRole('staff'), getPendingDocuments);

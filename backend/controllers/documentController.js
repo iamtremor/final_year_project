@@ -108,8 +108,6 @@ const uploadDocument = async (req, res) => {
     // Save file to disk
     fs.writeFileSync(filePath, file.buffer);
     
-    document.filePath = path.join(config.storage.documentsPath, fileName);
-    // document.fileName = file.originalname;
     // Create new document
     const document = new Document({
       title,
@@ -121,64 +119,109 @@ const uploadDocument = async (req, res) => {
       fileName: file.originalname,
       fileSize: file.size,
       mimeType: file.mimetype,
-      documentHash: blockchainService.createHash(file.buffer), // Store hash for future verification but don't add to blockchain yet
+      documentHash: blockchainService.createHash(file.buffer), // Store hash for future verification
       approverRole
     });
     
     await document.save();
-    const User = require('../models/User'); // Make sure this is added at the top
-    const Notification = require('../models/Notification'); // Make sure this is added at the top
     
-    let staffDepartment;
-    switch(approverRole) {
-      case 'schoolOfficer':
-        // Find school officer from student's department
-        const student = await User.findById(userId);
-        staffDepartment = student.department;
-        break;
-      case 'deputyRegistrar':
-        staffDepartment = 'Registrar';
-        break;
-      case 'studentSupport':
-        staffDepartment = 'Student Support';
-        break;
-      case 'finance':
-        staffDepartment = 'Finance';
-        break;
-      case 'health':
-        staffDepartment = 'Health Services';
-        break;
-      case 'departmentHead':
-        // Find HOD from student's department
-        const student2 = await User.findById(userId);
-        staffDepartment = student2.department + ' HOD';
-        break;
-      default:
-        staffDepartment = 'Admin';
-    }
+    // Find appropriate staff to notify
+    let staffToNotify = null;
+    const User = require('../models/User');
+    const Notification = require('../models/Notification');
     
-    // Find appropriate staff member
-    const staff = await User.findOne({ 
-      role: 'staff', 
-      department: staffDepartment 
+    // Get student for department info
+    const student = await User.findById(userId);
+    
+    // Log for debugging
+    console.log('Document upload notification process:', {
+      documentType,
+      approverRole,
+      studentDept: student ? student.department : 'Unknown'
     });
     
-    if (staff) {
+    switch(approverRole) {
+      case 'schoolOfficer':
+        // For School Officer, find officers who manage the student's department
+        staffToNotify = await User.findOne({ 
+          role: 'staff', 
+          department: 'School Officer',
+          managedDepartments: { $in: [student.department] }
+        });
+        
+        console.log('School Officer notification:', {
+          studentDepartment: student.department,
+          foundOfficer: !!staffToNotify,
+          officerDetails: staffToNotify ? {
+            id: staffToNotify._id,
+            name: staffToNotify.fullName,
+            managedDepts: staffToNotify.managedDepartments
+          } : 'None found'
+        });
+        break;
+        
+      case 'deputyRegistrar':
+        staffToNotify = await User.findOne({ role: 'staff', department: 'Registrar' });
+        break;
+        
+      case 'studentSupport':
+        staffToNotify = await User.findOne({ role: 'staff', department: 'Student Support' });
+        break;
+        
+      case 'finance':
+        staffToNotify = await User.findOne({ role: 'staff', department: 'Finance' });
+        break;
+        
+      case 'health':
+        staffToNotify = await User.findOne({ role: 'staff', department: 'Health Services' });
+        break;
+        
+      case 'departmentHead':
+        staffToNotify = await User.findOne({ 
+          role: 'staff', 
+          department: student.department + ' HOD' 
+        });
+        break;
+        
+      default:
+        staffToNotify = await User.findOne({ role: 'admin' });
+    }
+    
+    // Send notification if appropriate staff was found
+    if (staffToNotify) {
       const notification = new Notification({
         title: 'New Document Uploaded',
         description: `A student has uploaded a ${documentType} that requires your review`,
-        recipient: staff._id,
+        recipient: staffToNotify._id,
         status: 'info',
         type: 'document_upload',
         documentId: document._id,
         documentName: title
       });
       await notification.save();
+      
+      console.log(`Notification sent to ${staffToNotify.fullName} (${staffToNotify.department}) for document: ${title}`);
+    } else {
+      console.warn(`No appropriate staff found to notify for document type: ${documentType}`);
+      
+      // Fallback: Notify any admin as a fallback
+      const admin = await User.findOne({ role: 'admin' });
+      if (admin) {
+        const notification = new Notification({
+          title: 'New Document Uploaded (No Approver Found)',
+          description: `A student has uploaded a ${documentType} but no appropriate staff was found for review`,
+          recipient: admin._id,
+          status: 'warning',
+          type: 'document_upload',
+          documentId: document._id,
+          documentName: title
+        });
+        await notification.save();
+      }
     }
     
     res.status(201).json({ document });
-  }
-    catch (error) {
+  } catch (error) {
     console.error('Document upload error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
