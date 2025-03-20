@@ -321,7 +321,7 @@ const BlockchainVerified = () => {
               </div>
 
               <div className="flex justify-between items-center">
-                <a 
+                {/* <a 
                   href={`https://etherscan.io/tx/${selectedDoc.transactionHash}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
@@ -329,7 +329,7 @@ const BlockchainVerified = () => {
                 >
                   <FiExternalLink className="mr-1" />
                   View on Blockchain Explorer
-                </a>
+                </a> */}
                 <button 
                   onClick={closeModal}
                   className="px-4 py-2 bg-[#1E3A8A] text-white rounded hover:bg-[#152a63]"

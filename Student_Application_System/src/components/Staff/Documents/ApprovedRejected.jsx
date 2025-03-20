@@ -36,9 +36,15 @@ const StaffApprovedRejected = ({ type }) => {
     return type === "approved" ? FiCheckCircle : FiXCircle;
   };
 
+  // Handle filter changes
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+  };
+
   // Update URL when filter changes
   useEffect(() => {
-    if (filter !== "all") {
+    console.log("Updating URL with filter:", filter);
+    if (filter && filter !== "all") {
       setSearchParams({ type: filter });
     } else {
       setSearchParams({});
@@ -49,12 +55,15 @@ const StaffApprovedRejected = ({ type }) => {
   useEffect(() => {
     const typeParam = searchParams.get("type");
     if (typeParam) {
+      console.log("URL param changed to:", typeParam);
       setFilter(typeParam);
-    } else if (filter !== "all" && !typeParam) {
+    } else {
+      console.log("No URL param, setting filter to all");
       setFilter("all");
     }
-  }, [searchParams, filter]);
+  }, [searchParams]);
 
+  // Fetch data
   useEffect(() => {
     const fetchItems = async () => {
       try {
@@ -62,10 +71,12 @@ const StaffApprovedRejected = ({ type }) => {
         setError(null);
         
         // Fetch documents
+        console.log(`Fetching ${type} documents...`);
         const documentsResponse = await api.get(`/documents/${type}-by-me`);
         setDocuments(documentsResponse.data);
         
         // Fetch forms
+        console.log(`Fetching ${type} forms...`);
         const formsResponse = await api.get(`/clearance/forms/${type}-by-me`);
         setForms(formsResponse.data);
       } catch (err) {
@@ -80,21 +91,44 @@ const StaffApprovedRejected = ({ type }) => {
   }, [type]);
 
   // Filter items based on the selected filter
-  const filteredItems = () => {
-    if (filter === "documents") return { documents, forms: [] };
-    if (filter === "forms") return { documents: [], forms };
+  const getFilteredItems = () => {
+    console.log("Filtering items with filter:", filter);
+    if (filter === "documents") {
+      return { documents, forms: [] };
+    }
+    if (filter === "forms") {
+      return { documents: [], forms };
+    }
     return { documents, forms };
   };
 
-  // Format date
+  const { documents: filteredDocuments, forms: filteredForms } = getFilteredItems();
+  const hasNoItems = filteredDocuments.length === 0 && filteredForms.length === 0;
+  const Icon = getIcon();
+
+  // Format date helper function
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString();
   };
 
-  const { documents: filteredDocuments, forms: filteredForms } = filteredItems();
-  const hasNoItems = filteredDocuments.length === 0 && filteredForms.length === 0;
-  const Icon = getIcon();
+  // Helper function to get readable form type names
+  const getFormTypeName = (type) => {
+    switch (type) {
+      case "newClearance":
+        return "New Clearance Form";
+      case "provAdmission":
+        return "Provisional Admission Form";
+      case "personalRecord":
+        return "Personal Record Form";
+      case "personalRecord2":
+        return "Personal Record Form Part 2";
+      case "affidavit":
+        return "Rules & Affidavit Form";
+      default:
+        return type;
+    }
+  };
 
   return (
     <div
@@ -126,7 +160,7 @@ const StaffApprovedRejected = ({ type }) => {
           
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => setFilter("all")}
+              onClick={() => handleFilterChange("all")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                 filter === "all"
                   ? "bg-white text-[#1E3A8A] shadow-sm"
@@ -136,7 +170,7 @@ const StaffApprovedRejected = ({ type }) => {
               All Items
             </button>
             <button
-              onClick={() => setFilter("documents")}
+              onClick={() => handleFilterChange("documents")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                 filter === "documents"
                   ? "bg-white text-[#1E3A8A] shadow-sm"
@@ -146,7 +180,7 @@ const StaffApprovedRejected = ({ type }) => {
               Documents
             </button>
             <button
-              onClick={() => setFilter("forms")}
+              onClick={() => handleFilterChange("forms")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                 filter === "forms"
                   ? "bg-white text-[#1E3A8A] shadow-sm"
@@ -186,7 +220,7 @@ const StaffApprovedRejected = ({ type }) => {
               )}
             </p>
             <button 
-              onClick={() => setFilter("documents")}
+              onClick={() => handleFilterChange("documents")}
               className="text-[12px] flex items-center text-[#1E3A8A] hover:underline"
             >
               View Documents
@@ -207,7 +241,7 @@ const StaffApprovedRejected = ({ type }) => {
               )}
             </p>
             <button 
-              onClick={() => setFilter("forms")}
+              onClick={() => handleFilterChange("forms")}
               className="text-[12px] flex items-center text-[#1E3A8A] hover:underline"
             >
               View Forms
@@ -396,24 +430,6 @@ const StaffApprovedRejected = ({ type }) => {
       )}
     </div>
   );
-};
-
-// Helper function to get readable form type names
-const getFormTypeName = (type) => {
-  switch (type) {
-    case "newClearance":
-      return "New Clearance Form";
-    case "provAdmission":
-      return "Provisional Admission Form";
-    case "personalRecord":
-      return "Personal Record Form";
-    case "personalRecord2":
-      return "Personal Record Form Part 2";
-    case "affidavit":
-      return "Rules & Affidavit Form";
-    default:
-      return type;
-  }
 };
 
 // Export specialized components for approved and rejected items

@@ -26,21 +26,22 @@ const StaffPendingApprovals = () => {
   const initialFilter = searchParams.get("type") || "all";
   const [filter, setFilter] = useState(initialFilter);
 
-  // Update URL when filter changes
-  useEffect(() => {
-    if (filter !== "all") {
-      setSearchParams({ type: filter });
+  // Function to handle filter changes
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+    if (newFilter !== "all") {
+      setSearchParams({ type: newFilter });
     } else {
       setSearchParams({});
     }
-  }, [filter, setSearchParams]);
+  };
 
   // Update filter if URL param changes
   useEffect(() => {
     const typeParam = searchParams.get("type");
-    if (typeParam) {
+    if (typeParam && typeParam !== filter) {
       setFilter(typeParam);
-    } else if (filter !== "all" && !typeParam) {
+    } else if (!typeParam && filter !== "all") {
       setFilter("all");
     }
   }, [searchParams, filter]);
@@ -171,7 +172,7 @@ const StaffPendingApprovals = () => {
           
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => setFilter("all")}
+              onClick={() => handleFilterChange("all")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                 filter === "all"
                   ? "bg-white text-[#1E3A8A] shadow-sm"
@@ -181,7 +182,7 @@ const StaffPendingApprovals = () => {
               All Items
             </button>
             <button
-              onClick={() => setFilter("documents")}
+              onClick={() => handleFilterChange("documents")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                 filter === "documents"
                   ? "bg-white text-[#1E3A8A] shadow-sm"
@@ -191,7 +192,7 @@ const StaffPendingApprovals = () => {
               Documents
             </button>
             <button
-              onClick={() => setFilter("forms")}
+              onClick={() => handleFilterChange("forms")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                 filter === "forms"
                   ? "bg-white text-[#1E3A8A] shadow-sm"
@@ -232,7 +233,7 @@ const StaffPendingApprovals = () => {
               )}
             </p>
             <button 
-              onClick={() => setFilter("documents")}
+              onClick={() => handleFilterChange("documents")}
               className="text-[12px] flex items-center text-[#1E3A8A] hover:underline"
             >
               View Documents
@@ -253,7 +254,7 @@ const StaffPendingApprovals = () => {
               )}
             </p>
             <button 
-              onClick={() => setFilter("forms")}
+              onClick={() => handleFilterChange("forms")}
               className="text-[12px] flex items-center text-[#1E3A8A] hover:underline"
             >
               View Forms

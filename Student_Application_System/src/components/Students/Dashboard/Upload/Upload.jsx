@@ -583,7 +583,7 @@ return (
           </button>
           
           {/* Submit Button */}
-          <div className="flex justify-end">
+          <div className="flex justify-end mt-5">
             <button
               type="submit"
               disabled={isLoading || !isWithinDeadline}
@@ -603,7 +603,7 @@ return (
                 </>
               ) : (
                 <>
-                  <FiUpload className="mr-2 -ml-1 h-5 w-5" aria-hidden="true" />
+                  <FiUpload className="mr-2 -ml-1 h-5 w-5 " aria-hidden="true" />
                   Upload All Documents
                 </>
               )}
