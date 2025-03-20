@@ -207,7 +207,7 @@ const Sidebar = ({ role }) => {
           ${sidebarOpen ? "translate-x-0 shadow-lg" : "-translate-x-full"} lg:translate-x-0`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-400">
           <div className="flex items-center gap-3">
             <img src={Logo} alt="logo" className="w-10 h-10" />
             <h1 className="text-lg font-semibold text-white">SAS</h1>
@@ -259,7 +259,7 @@ const Sidebar = ({ role }) => {
                           openSubMenu === index ? "max-h-96" : "max-h-0"
                         }`}
                       >
-                        <ul className="ml-6 mt-2 space-y-2 border-l border-gray-700 pl-2">
+                        <ul className="ml-6 mt-2 space-y-2   pl-2">
                           {item.subLinks.map((sub) => (
                             <li key={sub.path}>
                               <Link

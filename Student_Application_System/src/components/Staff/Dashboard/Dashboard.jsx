@@ -276,7 +276,7 @@ const StaffDashboard = () => {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-center">
                         <a 
-                          href={`/staff/document-review/${doc.id}`} 
+                          href={`/staff/review-document/${doc.id}`} 
                           className="text-[#1E3A8A] hover:text-[#152a63] hover:underline"
                         >
                           Review

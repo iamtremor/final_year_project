@@ -105,7 +105,7 @@ const deleteNotification = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized' });
     }
 
-    await notification.remove();
+    await notification.deleteOne();
 
     res.json({ message: 'Notification removed' });
   } catch (error) {

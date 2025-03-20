@@ -16,6 +16,9 @@ const { checkRole, checkRoles } = require('../middleware/roles');
 // Get notifications for current student
 router.get('/user', auth, getUserNotifications);
 
+// Delete notification
+router.delete('/:id', auth, deleteNotification);
+
 // Create notification (staff/admin only)
 router.post('/', auth, checkRoles(['staff', 'admin']), createNotification);
 
@@ -25,8 +28,6 @@ router.put('/:id/toggle-read', auth, toggleReadStatus);
 // Mark all notifications as read
 router.put('/mark-all-read', auth, markAllRead);
 
-// Delete notification
-router.delete('/:id', auth, deleteNotification);
 
 // Clear all notifications
 router.delete('/clear-all', auth, clearAllNotifications);

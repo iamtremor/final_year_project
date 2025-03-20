@@ -12,13 +12,13 @@ const Navbar = ({ role, userName, appId }) => {
   };
 
   return (
-    <header className="bg-white shadow-md h-16">
-      <div className="container h-full max-w-full mx-auto flex justify-between items-center px-4 lg:px-6">
+    <header className="bg-white shadow-md h-16 border-b shadow-2xl border-gray-200">
+      <div className="container h-full max-w-full mx-auto flex justify-between items-center lg:px-6">
         {/* Left side - User Info */}
         <div className="flex items-center">
           {/* Space for mobile menu button */}
           <div className="w-8 lg:hidden"></div>
-          <div className="text-black">
+          <div className="text-black max-lg:ml-6">
             <p className="text-sm font-medium">
               {userName || "User"} <span className="text-gray-600 font-normal">({role || "Guest"})</span>
             </p>
