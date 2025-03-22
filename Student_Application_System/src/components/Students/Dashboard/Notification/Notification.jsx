@@ -14,7 +14,7 @@ import {
   FiEdit,
   FiArrowRight
 } from "react-icons/fi";
-import axios from "axios";
+import api from "../../../../utils/api";
 import toast, { Toaster } from "react-hot-toast";
 import { useAuth } from "../../../../context/AuthContext";
 import { format, formatDistanceToNow } from "date-fns";
@@ -24,276 +24,212 @@ const Notification = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [activeFilter, setActiveFilter] = useState("all"); // all, unread, read
   const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
   
   // Fetch notifications on component mount
   useEffect(() => {
     fetchNotifications();
+    
+    // Optional: fetch unread count periodically
+    const refreshInterval = setInterval(() => {
+      fetchUnreadCount();
+    }, 60000); // Every minute
+    
+    return () => clearInterval(refreshInterval);
   }, []);
+  
+  // Function to fetch unread count
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await api.get('/notifications/unread-count');
+      const { count } = response.data;
+      setUnreadCount(count);
+      return count;
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      return 0;
+    }
+  };
+
+  // Calculate unread count from notifications
+  const calculateUnreadCount = (notificationList) => {
+    const count = notificationList.filter(n => n.isRead === false).length;
+    setUnreadCount(count);
+    return count;
+  };
   
   // Function to fetch notifications
   const fetchNotifications = async () => {
     try {
       setLoading(true);
       
-      // In a real implementation, get token from localStorage
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        toast.error("Authentication token not found. Please log in again.");
-        setLoading(false);
-        return;
-      }
-
-      // Call the notifications API
-      const response = await axios.get('/api/notifications/user', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // If using the mock data during development
-      if (!response.data || response.data.length === 0) {
-        // For demo/development - sample data
-        const sampleNotifications = [
-          {
-            id: 1,
-            title: "Transcript Approved",
-            description: "Your transcript has been approved successfully.",
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-            status: "success", // success, warning, or error
-            isRead: false,
-            documentId: "doc123",
-            documentName: "University Transcript",
-            type: "document_approval"
-          },
-          {
-            id: 2,
-            title: "Admission Letter Uploaded",
-            description: "Your admission letter was uploaded for review.",
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-            status: "warning",
-            isRead: true,
-            documentId: "doc124",
-            documentName: "Admission Letter",
-            type: "document_upload"
-          },
-          {
-            id: 3,
-            title: "Medical Report Rejected",
-            description: "Your medical report was rejected. Please re-upload with clearer images.",
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
-            status: "error",
-            isRead: false,
-            documentId: "doc125",
-            documentName: "Medical Report",
-            type: "document_rejection"
-          },
-          {
-            id: 4,
-            title: "Document Deleted",
-            description: "You have deleted your WAEC Result document.",
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 96).toISOString(),
-            status: "info",
-            isRead: false,
-            documentId: null,
-            documentName: "WAEC Result",
-            type: "document_deletion"
-          },
-          {
-            id: 5,
-            title: "Document Submission Deadline",
-            description: "Reminder: All required documents must be submitted within 7 days.",
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 120).toISOString(),
-            status: "warning",
-            isRead: true,
-            documentId: null,
-            documentName: null,
-            type: "deadline_reminder"
-          },
-          {
-            id: 6,
-            title: "New Announcement from Admin",
-            description: "Registration for summer classes is now open. Please check the admin portal.",
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 144).toISOString(),
-            status: "info",
-            isRead: false,
-            documentId: null,
-            documentName: null,
-            type: "announcement"
-          }
-        ];
+      try {
+        // Call the notifications API
+        const response = await api.get('/notifications/user');
         
-        setNotifications(sampleNotifications);
-      } else {
-        setNotifications(response.data);
+        if (response.data && response.data.length > 0) {
+          setNotifications(response.data);
+          
+          // Calculate and set unread count
+          calculateUnreadCount(response.data);
+          console.log(`Found ${response.data.length} notifications, ${calculateUnreadCount(response.data)} unread`);
+        } else {
+          // No notifications
+          setNotifications([]);
+          setUnreadCount(0);
+        }
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+        toast.error("Failed to load notifications");
+        
+        // Reset notifications if fetch fails
+        setNotifications([]);
+        setUnreadCount(0);
       }
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      toast.error("Failed to load notifications");
-      
-      // Use sample data for demo if API fails
-      const sampleNotifications = [
-        {
-          id: 1,
-          title: "Transcript Approved",
-          description: "Your transcript has been approved successfully.",
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-          status: "success",
-          isRead: false,
-          documentId: "doc123",
-          documentName: "University Transcript",
-          type: "document_approval"
-        },
-        // Add the rest of the sample data
-      ];
-      
-      setNotifications(sampleNotifications);
     } finally {
       setLoading(false);
     }
   };
   
   // Function to mark notification as read
-  const toggleReadStatus = async (id) => {
+  const toggleReadStatus = async (notification) => {
     try {
-      const token = localStorage.getItem('token');
+      const notificationId = notification.id || notification._id;
       
-      if (!token) {
-        toast.error("Authentication token not found");
+      if (!notificationId) {
+        console.error("Attempted to toggle notification with undefined ID");
+        toast.error("Unable to update notification: ID is missing");
         return;
       }
       
-      // Make API call to toggle read status
-      await axios.put(`/api/notifications/${id}/toggle-read`, {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      // Call the correct API endpoint with proper ID
+      await api.put(`/notifications/${notificationId}/toggle-read`);
       
       // Update state
-      setNotifications(prevNotifications =>
-        prevNotifications.map(notif =>
-          notif.id === id ? { ...notif, isRead: !notif.isRead } : notif
-        )
-      );
+      setNotifications(prevNotifications => {
+        const updatedNotifications = prevNotifications.map(notif => {
+          const notifId = notif.id || notif._id;
+          if (notifId === notificationId) {
+            return { ...notif, isRead: !notif.isRead };
+          }
+          return notif;
+        });
+        
+        // Recalculate unread count
+        calculateUnreadCount(updatedNotifications);
+        
+        return updatedNotifications;
+      });
       
       toast.success("Notification status updated");
     } catch (error) {
       console.error("Error updating notification:", error);
-      
-      // For demo/development - update state without API
-      setNotifications(prevNotifications =>
-        prevNotifications.map(notif =>
-          notif.id === id ? { ...notif, isRead: !notif.isRead } : notif
-        )
-      );
-      
-      toast.success("Notification status updated (demo mode)");
+      toast.error("Failed to update notification");
     }
   };
   
   // Function to mark all notifications as read
   const markAllAsRead = async () => {
     try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        toast.error("Authentication token not found");
-        return;
-      }
-      
       // Make API call to mark all as read
-      await axios.put('/api/notifications/mark-all-read', {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await api.put('/notifications/mark-all-read');
       
       // Update state
-      setNotifications(prevNotifications =>
-        prevNotifications.map(notif => ({ ...notif, isRead: true }))
-      );
+      setNotifications(prevNotifications => {
+        const updatedNotifications = prevNotifications.map(notif => ({ 
+          ...notif, 
+          isRead: true 
+        }));
+        
+        // Set unread count to 0
+        setUnreadCount(0);
+        
+        return updatedNotifications;
+      });
       
       toast.success("All notifications marked as read");
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
-      
-      // For demo/development - update state without API
-      setNotifications(prevNotifications =>
-        prevNotifications.map(notif => ({ ...notif, isRead: true }))
-      );
-      
-      toast.success("All notifications marked as read (demo mode)");
+      toast.error("Failed to update notifications");
     }
   };
   
-  // Function to delete notification
-  const deleteNotification = async (id) => {
+  const deleteNotification = async (notification) => {
     try {
-      const token = localStorage.getItem('token');
+      // Get the correct ID (either id or _id)
+      const notificationId = notification.id || notification._id;
       
-      if (!token) {
-        toast.error("Authentication token not found");
+      if (!notificationId) {
+        console.error("Attempted to delete notification with undefined ID", notification);
+        toast.error("Unable to delete notification: ID is missing");
         return;
       }
+  
+      console.log(`Deleting notification with ID: ${notificationId}`);
       
-      // Make API call to delete notification
-      await axios.delete(`/api/notifications/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      // Track if the deleted notification was unread
+      const wasUnread = notification.isRead === false;
+      
+      // Call the API endpoint with the correct ID
+      await api.delete(`/notifications/${notificationId}`);
+      
+      // Update the state to remove the deleted notification
+      setNotifications(prevNotifications => {
+        const updatedNotifications = prevNotifications.filter(notif => {
+          // Filter out by matching either id or _id
+          const notifId = notif.id || notif._id;
+          return notifId !== notificationId;
+        });
+        
+        // If we deleted an unread notification, update the count
+        if (wasUnread) {
+          setUnreadCount(prevCount => Math.max(0, prevCount - 1));
         }
+        
+        return updatedNotifications;
       });
-      
-      // Update state
-      setNotifications(prevNotifications =>
-        prevNotifications.filter(notif => notif.id !== id)
-      );
       
       toast.success("Notification removed");
     } catch (error) {
       console.error("Error deleting notification:", error);
       
-      // For demo/development - update state without API
-      setNotifications(prevNotifications =>
-        prevNotifications.filter(notif => notif.id !== id)
-      );
-      
-      toast.success("Notification removed (demo mode)");
+      if (error.response && error.response.data) {
+        console.error("Server error response:", error.response.data);
+        toast.error(error.response.data.message || "Failed to delete notification");
+      } else {
+        toast.error("Failed to delete notification");
+      }
     }
   };
   
   // Function to clear all notifications
   const clearAllNotifications = async () => {
     try {
-      const token = localStorage.getItem('token');
+      console.log("Clearing all notifications");
       
-      if (!token) {
-        toast.error("Authentication token not found");
-        return;
-      }
+      // Use the proper API endpoint for clearing all notifications
+      await api.delete('/notifications/clear-all');
       
-      // Make API call to clear all notifications
-      await axios.delete('/api/notifications/clear-all', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Update state
+      // Clear notifications from state
       setNotifications([]);
+      // Reset unread count
+      setUnreadCount(0);
       setIsDeleteAllModalOpen(false);
       
       toast.success("All notifications cleared");
     } catch (error) {
       console.error("Error clearing notifications:", error);
       
-      // For demo/development - update state without API
-      setNotifications([]);
-      setIsDeleteAllModalOpen(false);
+      if (error.response && error.response.data) {
+        console.error("Server error response:", error.response.data);
+        toast.error(error.response.data.message || "Failed to clear notifications");
+      } else {
+        toast.error("Failed to clear notifications");
+      }
       
-      toast.success("All notifications cleared (demo mode)");
+      setIsDeleteAllModalOpen(false);
     }
   };
   
@@ -315,8 +251,8 @@ const Notification = () => {
   const filteredNotifications = activeFilter === "all" 
     ? notifications 
     : activeFilter === "unread" 
-      ? notifications.filter(n => !n.isRead)
-      : notifications.filter(n => n.isRead);
+      ? notifications.filter(n => n.isRead === false)  // Explicitly check for false
+      : notifications.filter(n => n.isRead === true);  // Explicitly check for true
   
   // Get notification icon based on status and type
   const getNotificationIcon = (status, type) => {
@@ -434,9 +370,9 @@ const Notification = () => {
         <div className="text-2xl font-bold text-[#1E3A8A] flex items-center mb-4 sm:mb-0">
           <IoMdNotificationsOutline className="mr-2" />
           <h2>Notifications</h2>
-          {filteredNotifications.filter(n => !n.isRead).length > 0 && (
+          {unreadCount > 0 && (
             <span className="ml-2 bg-[#1E3A8A] text-white rounded-full text-sm px-2 py-1">
-              {filteredNotifications.filter(n => !n.isRead).length} new
+              {unreadCount} new
             </span>
           )}
         </div>
@@ -489,7 +425,7 @@ const Notification = () => {
           <button
             onClick={markAllAsRead}
             className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
-            disabled={notifications.filter(n => !n.isRead).length === 0}
+            disabled={unreadCount === 0}
           >
             <FiCheckCircle className="mr-2" /> Mark All as Read
           </button>
@@ -541,7 +477,7 @@ const Notification = () => {
         <div className="space-y-4">
           {filteredNotifications.map((notification) => (
             <div 
-              key={notification.id} 
+              key={notification.id || notification._id} 
               className={`bg-white rounded-lg shadow-sm overflow-hidden border-l-4 ${
                 notification.isRead 
                   ? "border-gray-300" 
@@ -567,7 +503,7 @@ const Notification = () => {
                         </p>
                       )}
                       <p className="mt-2 text-xs text-gray-500">
-                        {formatTimestamp(notification.timestamp)}
+                        {formatTimestamp(notification.timestamp || notification.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -583,14 +519,14 @@ const Notification = () => {
                       </button>
                     )}
                     <button
-                      onClick={() => toggleReadStatus(notification.id)}
+                      onClick={() => toggleReadStatus(notification)}
                       className={`p-1 ${notification.isRead ? "text-gray-400 hover:text-gray-600" : "text-green-600 hover:text-green-800"}`}
                       title={notification.isRead ? "Mark as unread" : "Mark as read"}
                     >
                       <FiCheckCircle />
                     </button>
                     <button
-                      onClick={() => deleteNotification(notification.id)}
+                      onClick={() => deleteNotification(notification)}
                       className="p-1 text-red-600 hover:text-red-800"
                       title="Delete notification"
                     >
